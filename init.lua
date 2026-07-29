@@ -40,9 +40,11 @@ vim.pack.add({
 -- legacy regex :syntax for that buffer automatically (see
 -- runtime/lua/vim/treesitter/highlighter.lua) -- this is what actually
 -- avoids the classic "syntax plugin fighting treesitter" conflict.
-require('nvim-treesitter').install({ 'cpp', 'python' })
+-- Note: the tree-sitter grammar/parser is named 'bash', but Neovim's
+-- filetype for bash/sh scripts is 'sh' (even for a #!/bin/bash shebang).
+require('nvim-treesitter').install({ 'cpp', 'python', 'bash' })
 vim.api.nvim_create_autocmd('FileType', {
-  pattern = { 'cpp', 'python' },
+  pattern = { 'cpp', 'python', 'sh' },
   callback = function() vim.treesitter.start() end,
 })
 
