@@ -54,6 +54,11 @@ do
     sources = {
       default = { 'lsp', 'path', 'snippets', 'buffer', 'calc', 'ripgrep', 'tmux' },
       providers = {
+        -- Defaults (path=3, snippets=-1, buffer=-3, lsp=0) put path above LSP
+        -- on tied fuzzy-match scores. Push lsp above all of those so it wins.
+        lsp = {
+          score_offset = 5,
+        },
         calc = {
           name = 'Calc',
           module = 'blink-calc',
