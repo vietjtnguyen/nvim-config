@@ -18,6 +18,8 @@ vim.pack.add({
   { src = 'https://github.com/mikavilpas/blink-ripgrep.nvim', version = '5ed7bac817777994cb80abccd052b73eb844166c' },
   -- mgalliou/blink-cmp-tmux @ HEAD (2026-07-16; no tagged releases)
   { src = 'https://github.com/mgalliou/blink-cmp-tmux', version = '112ddbf2e09d9cb4736de70dd01eb9654cf01d70' },
+  -- tpope/vim-fugitive @ v3.7 tag
+  { src = 'https://github.com/tpope/vim-fugitive', version = '96c1009fcf8ce60161cc938d149dd5a66d570756' },
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
