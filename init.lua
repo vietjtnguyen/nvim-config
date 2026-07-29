@@ -40,6 +40,8 @@ vim.pack.add({
   { src = 'https://github.com/folke/tokyonight.nvim', version = '19f39b53ef5e148bf94ea3696df36175af7e31e6' },
   -- navarasu/onedark.nvim @ v1.0.3 tag
   { src = 'https://github.com/navarasu/onedark.nvim', version = '631085064d202d07e4b677f11dcd24383f5c6fd9' },
+  -- projekt0n/github-nvim-theme @ v1.1.2 tag
+  { src = 'https://github.com/projekt0n/github-nvim-theme', version = 'd26a5f523b292c80cf396ed40623534bbc8756be' },
 })
 
 -- Configured but not activated (github_dark is the default below); switch
@@ -62,6 +64,27 @@ require('onedark').setup({
     background = true,
   },
 })
+
+-- Default colorscheme.
+require('github-theme').setup({
+  options = {
+    hide_nc_statusline = false,
+    transparent = true,
+    styles = {
+      comments = 'NONE',
+      functions = 'NONE',
+      keywords = 'bold',
+      variables = 'NONE',
+      conditionals = 'NONE',
+      constants = 'NONE',
+      numbers = 'NONE',
+      operators = 'NONE',
+      strings = 'NONE',
+      types = 'bold',
+    },
+  },
+})
+vim.cmd.colorscheme('github_dark')
 
 -- Treesitter-based syntax highlighting. vim.treesitter.start() disables
 -- legacy regex :syntax for that buffer automatically (see
