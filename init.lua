@@ -22,6 +22,8 @@ vim.pack.add({
   { src = 'https://github.com/tpope/vim-fugitive', version = '96c1009fcf8ce60161cc938d149dd5a66d570756' },
   -- tpope/vim-surround @ v2.2 tag
   { src = 'https://github.com/tpope/vim-surround', version = 'aeb933272e72617f7c4d35e1f003be16836b948d' },
+  -- tpope/vim-unimpaired @ v2.1 tag
+  { src = 'https://github.com/tpope/vim-unimpaired', version = 'efdc6475f7ea789346716dabf9900ac04ee8604a' },
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
@@ -101,8 +103,7 @@ end
 -- 'tagfunc', 'formatexpr' on attach -- see :help lsp-defaults.
 vim.lsp.enable('clangd')
 
--- Diagnostic navigation (not covered by Neovim's built-in LSP keymaps)
-vim.keymap.set({ 'n', 'v', 'o' }, ']e', function() vim.diagnostic.jump({ count = 1 }) end, { desc = 'Next Diagnostic' })
-vim.keymap.set({ 'n', 'v', 'o' }, '[e', function() vim.diagnostic.jump({ count = -1 }) end, { desc = 'Previous Diagnostic' })
+-- Diagnostic float/loclist (next/prev jump is already ]d/[d, a core default;
+-- ]e/[e are left alone for vim-unimpaired's line-exchange mapping)
 vim.keymap.set({ 'n', 'v', 'o' }, 'ge', vim.diagnostic.open_float, { desc = 'Open Diagnostic' })
 vim.keymap.set({ 'n', 'v', 'o' }, 'gE', vim.diagnostic.setloclist, { desc = 'Diagnostics to Loc List' })
