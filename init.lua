@@ -69,10 +69,64 @@ vim.pack.add({
 -- metaphor); remapped here to the more direct up=parent/down=child
 -- compass metaphor for the arrow keys specifically.
 require('treewalker').setup()
-vim.keymap.set({ 'n', 'v' }, '<C-Left>', '<cmd>Treewalker Up<cr>', { desc = 'Treesitter: prev sibling' })
-vim.keymap.set({ 'n', 'v' }, '<C-Right>', '<cmd>Treewalker Down<cr>', { desc = 'Treesitter: next sibling' })
-vim.keymap.set({ 'n', 'v' }, '<C-Up>', '<cmd>Treewalker Left<cr>', { desc = 'Treesitter: parent' })
-vim.keymap.set({ 'n', 'v' }, '<C-Down>', '<cmd>Treewalker Right<cr>', { desc = 'Treesitter: child' })
+
+-- After each move, flash all four *next-possible* destinations (not just
+-- the node just landed on, which treewalker already flashes itself) so the
+-- next Ctrl+Arrow's target is visible before pressing it. Reaches into
+-- treewalker.anchor's find_* functions -- the same lookups its own move
+-- commands use internally -- since there's no public "peek" API for this.
+-- Undocumented/internal, so a future treewalker update could rename or
+-- restructure this without warning; verified against the installed version.
+do
+  local function preview_next_moves()
+    local anchor = require('treewalker.anchor')
+    local opts = require('treewalker').opts
+    local current = anchor.current()
+    if not current then return end
+
+    local ns = vim.api.nvim_create_namespace('treewalker-preview')
+    vim.api.nvim_buf_clear_namespace(0, ns, 0, -1)
+
+    -- find_out=parent, find_in=child, find_up=prev sibling, find_down=next
+    -- sibling (treewalker's outline-indent naming) -- mapped here to the
+    -- up=parent/down=child/left,right=siblings compass keys below.
+    local directions = {
+      { find = 'find_out', hl = 'DiffDelete' }, -- Ctrl-Up (parent)
+      { find = 'find_in', hl = 'DiffText' }, -- Ctrl-Down (child)
+      { find = 'find_up', hl = 'DiffAdd' }, -- Ctrl-Left (prev sibling)
+      { find = 'find_down', hl = 'DiffChange' }, -- Ctrl-Right (next sibling)
+    }
+    local lines = require('treewalker.lines')
+    for _, d in ipairs(directions) do
+      local target = anchor[d.find](current)
+      if target then
+        -- Just the single cell the cursor will actually land on (matching
+        -- operations.jump_to_line_start: first non-whitespace column of
+        -- target.row), not the destination node's whole text range.
+        local line = lines.get_line(target.row) or ''
+        local col0 = lines.get_start_col(line) - 1
+        local row0 = target.row - 1
+        vim.hl.range(0, ns, d.hl, { row0, col0 }, { row0, col0 }, { inclusive = true })
+      end
+    end
+
+    vim.defer_fn(function()
+      vim.api.nvim_buf_clear_namespace(0, ns, 0, -1)
+    end, opts.highlight_duration or 250)
+  end
+
+  local function move_and_preview(cmd)
+    return function()
+      vim.cmd('Treewalker ' .. cmd)
+      vim.schedule(preview_next_moves)
+    end
+  end
+
+  vim.keymap.set({ 'n', 'v' }, '<C-Left>', move_and_preview('Up'), { desc = 'Treesitter: prev sibling' })
+  vim.keymap.set({ 'n', 'v' }, '<C-Right>', move_and_preview('Down'), { desc = 'Treesitter: next sibling' })
+  vim.keymap.set({ 'n', 'v' }, '<C-Up>', move_and_preview('Left'), { desc = 'Treesitter: parent' })
+  vim.keymap.set({ 'n', 'v' }, '<C-Down>', move_and_preview('Right'), { desc = 'Treesitter: child' })
+end
 
 -- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
 require('telescope').setup({})
