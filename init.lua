@@ -30,6 +30,20 @@ vim.pack.add({
   -- MagicDuck/grug-far.nvim @ 1.6.76 tag (modern replacement for
   -- nvim-spectre; ripgrep + ast-grep backed find/replace)
   { src = 'https://github.com/MagicDuck/grug-far.nvim', version = '6e05398cf6cad05b3fb46569db96b1ccfcbbd402' },
+  -- nvim-treesitter/nvim-treesitter @ HEAD (2026-07; post-rewrite "main"
+  -- branch releases continuously, no meaningful tags -- the v0.9.x tags
+  -- are leftovers from the pre-rewrite branch)
+  { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = '61df84986b4b4ec469ee745a182e433d49f8c27e' },
+})
+
+-- Treesitter-based syntax highlighting. vim.treesitter.start() disables
+-- legacy regex :syntax for that buffer automatically (see
+-- runtime/lua/vim/treesitter/highlighter.lua) -- this is what actually
+-- avoids the classic "syntax plugin fighting treesitter" conflict.
+require('nvim-treesitter').install({ 'cpp' })
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'cpp',
+  callback = function() vim.treesitter.start() end,
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
