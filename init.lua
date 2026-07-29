@@ -168,6 +168,26 @@ for _, m in ipairs({
   vim.keymap.set({ 'n', 'v', 'o' }, lhs, function() require('telescope.builtin')[builtin]() end, { desc = desc })
 end
 
+-- Project-wide LSP symbol search. Deliberately lsp_dynamic_workspace_symbols,
+-- not lsp_workspace_symbols: the static version sends one empty-query
+-- request up front and filters that fixed list locally, which can look
+-- broken/incomplete if the server returns little for an empty query. The
+-- dynamic version re-sends workspace/symbol with the actual typed text on
+-- every keystroke, so the server does the real project-wide search.
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>s', function()
+  require('telescope.builtin').lsp_dynamic_workspace_symbols()
+end, { desc = 'Workspace Symbols' })
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>t', function()
+  require('telescope.builtin').lsp_dynamic_workspace_symbols({
+    symbols = { 'class', 'struct', 'interface', 'enum' },
+  })
+end, { desc = 'Workspace Symbols: Types' })
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>m', function()
+  require('telescope.builtin').lsp_dynamic_workspace_symbols({
+    symbols = { 'function', 'method' },
+  })
+end, { desc = 'Workspace Symbols: Functions/Methods' })
+
 -- Configured but not activated (github_dark is the default below); switch
 -- to it with :colorscheme onedark.
 require('onedark').setup({
