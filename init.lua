@@ -24,6 +24,9 @@ vim.pack.add({
   { src = 'https://github.com/tpope/vim-surround', version = 'aeb933272e72617f7c4d35e1f003be16836b948d' },
   -- tpope/vim-unimpaired @ v2.1 tag
   { src = 'https://github.com/tpope/vim-unimpaired', version = 'efdc6475f7ea789346716dabf9900ac04ee8604a' },
+  -- nvim-mini/mini.trailspace @ v0.9.0 tag (modern Lua replacement for
+  -- vim-better-whitespace; standalone install, not the full mini.nvim bundle)
+  { src = 'https://github.com/nvim-mini/mini.trailspace', version = 'c41ab1035d184ff20c1aebd76639320c055afebe' },
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
@@ -102,6 +105,10 @@ end
 -- attach keymaps (gra/gri/grn/grr/grt/gO/K/i_CTRL-S) and sets 'omnifunc',
 -- 'tagfunc', 'formatexpr' on attach -- see :help lsp-defaults.
 vim.lsp.enable('clangd')
+
+-- Highlight trailing whitespace; :lua MiniTrailspace.trim() to strip it
+-- (not automatic on save, matching vim-better-whitespace's own default).
+require('mini.trailspace').setup()
 
 -- Diagnostic float/loclist (next/prev jump is already ]d/[d, a core default;
 -- ]e/[e are left alone for vim-unimpaired's line-exchange mapping)
