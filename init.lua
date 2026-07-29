@@ -346,69 +346,15 @@ end
 vim.lsp.enable('clangd')
 
 --------------------------------------------------------------------------------
--- Reference highlighting
+-- Reference highlighting (lua/navigate_references.lua)
 --------------------------------------------------------------------------------
--- Highlight every occurrence of the symbol under the cursor in the current
--- file via the LSP (vim.lsp.buf.document_highlight) -- semantic, so it respects
--- scope and shadowing. Highlights on a short debounce after the cursor settles
--- (a timer, so it doesn't hinge on the global 'updatetime' the way CursorHold
--- would) and clears the moment the cursor moves. Wired per buffer on LspAttach,
--- only for servers that advertise the capability.
-do
-  -- Keep the highlight groups visible: github_dark defines LspReferenceRead/
-  -- Write but not Text; other schemes may define none. Fall back sensibly, and
-  -- re-check on ColorScheme since a switch clears these overrides.
-  local function ensure_ref_hl()
-    if vim.tbl_isempty(vim.api.nvim_get_hl(0, { name = 'LspReferenceRead' })) then
-      vim.api.nvim_set_hl(0, 'LspReferenceRead', { link = 'Visual' })
-      vim.api.nvim_set_hl(0, 'LspReferenceWrite', { link = 'Visual' })
-    end
-    if vim.tbl_isempty(vim.api.nvim_get_hl(0, { name = 'LspReferenceText' })) then
-      vim.api.nvim_set_hl(0, 'LspReferenceText', { link = 'LspReferenceRead' })
-    end
-  end
-  ensure_ref_hl()
-
-  local group = vim.api.nvim_create_augroup('lsp-reference-highlight', { clear = true })
-  vim.api.nvim_create_autocmd('ColorScheme', { group = group, callback = ensure_ref_hl })
-
-  vim.api.nvim_create_autocmd('LspAttach', {
-    group = group,
-    callback = function(args)
-      local client = vim.lsp.get_client_by_id(args.data.client_id)
-      if not client or not client:supports_method('textDocument/documentHighlight') then
-        return
-      end
-      local buf = args.buf
-      -- Wire the buffer up only once, even if several clients attach.
-      if vim.b[buf].ref_highlight then return end
-      vim.b[buf].ref_highlight = true
-
-      local timer
-      vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI', 'InsertEnter' }, {
-        group = group,
-        buffer = buf,
-        callback = function()
-          vim.lsp.buf.clear_references()
-          if timer then timer:stop() end
-          timer = vim.defer_fn(function()
-            if vim.api.nvim_get_current_buf() == buf then
-              vim.lsp.buf.document_highlight()
-            end
-          end, 200)
-        end,
-      })
-      vim.api.nvim_create_autocmd('LspDetach', {
-        group = group,
-        buffer = buf,
-        callback = function()
-          if timer then timer:stop() end
-          vim.lsp.buf.clear_references()
-        end,
-      })
-    end,
-  })
-end
+-- Self-written: highlight every use of the symbol under the cursor in the
+-- current file (semantic, via the LSP document highlight), debounced on cursor
+-- idle and cleared on move. ]r / [r hop between those same uses without
+-- touching the quickfix list. See the module for details.
+require('navigate_references').setup()
+vim.keymap.set('n', ']r', function() require('navigate_references').jump(true) end, { desc = 'Next reference' })
+vim.keymap.set('n', '[r', function() require('navigate_references').jump(false) end, { desc = 'Prev reference' })
 
 --------------------------------------------------------------------------------
 -- Call hints (lua/callhints.lua)
