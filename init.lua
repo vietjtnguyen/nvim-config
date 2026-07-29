@@ -48,6 +48,9 @@ vim.pack.add({
   { src = 'https://github.com/nvim-telescope/telescope.nvim', version = '5255aa27c422de944791318024167ad5d40aad20' },
   -- nvim-telescope/telescope-fzf-native.nvim @ HEAD (no tagged releases)
   { src = 'https://github.com/nvim-telescope/telescope-fzf-native.nvim', version = 'b25b749b9db64d375d782094e2b9dce53ad53a40' },
+  -- debugloop/telescope-undo.nvim @ HEAD (no tagged releases; last pushed
+  -- 2025-01-31 -- stale but still functional, no real equivalent elsewhere)
+  { src = 'https://github.com/debugloop/telescope-undo.nvim', version = '928d0c2dc9606e01e2cc547196f48d2eaecf58e5' },
 })
 
 -- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
@@ -65,6 +68,7 @@ do
   end
 end
 require('telescope').load_extension('fzf')
+require('telescope').load_extension('undo')
 
 for _, m in ipairs({
   { '<Space>b', 'buffers', 'Buffers' },
