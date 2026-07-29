@@ -38,6 +38,29 @@ vim.pack.add({
   { src = 'https://github.com/ellisonleao/gruvbox.nvim', version = 'ca36abf47f1d0ad577b464980a3d4af51bb26203' },
   -- folke/tokyonight.nvim @ v4.9.0 tag
   { src = 'https://github.com/folke/tokyonight.nvim', version = '19f39b53ef5e148bf94ea3696df36175af7e31e6' },
+  -- navarasu/onedark.nvim @ v1.0.3 tag
+  { src = 'https://github.com/navarasu/onedark.nvim', version = '631085064d202d07e4b677f11dcd24383f5c6fd9' },
+})
+
+-- Configured but not activated (github_dark is the default below); switch
+-- to it with :colorscheme onedark.
+require('onedark').setup({
+  style = 'cool',
+  transparent = true,
+  term_colors = true,
+  ending_tildes = false,
+  code_style = {
+    comments = 'none',
+    keywords = 'none',
+    functions = 'none',
+    strings = 'none',
+    variables = 'none',
+  },
+  diagnostics = {
+    darker = true,
+    undercurl = true,
+    background = true,
+  },
 })
 
 -- Treesitter-based syntax highlighting. vim.treesitter.start() disables
