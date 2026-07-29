@@ -346,6 +346,18 @@ end
 vim.lsp.enable('clangd')
 
 --------------------------------------------------------------------------------
+-- Call hints (lua/callhints.lua)
+--------------------------------------------------------------------------------
+-- Self-written: virtual text at each function's signature line showing how many
+-- in-file vs out-of-file callers it has, derived from the LSP call hierarchy.
+-- Off by default; :CallHints (or <Space>h) toggles it per buffer, and it
+-- refreshes on save.
+require('callhints').setup()
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>h', function()
+  require('callhints').toggle()
+end, { desc = 'Toggle Call Hints' })
+
+--------------------------------------------------------------------------------
 -- Whitespace (mini.trailspace)
 --------------------------------------------------------------------------------
 -- Highlight trailing whitespace; :lua MiniTrailspace.trim() to strip it (not
