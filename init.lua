@@ -18,8 +18,6 @@ vim.pack.add({
   { src = 'https://github.com/mikavilpas/blink-ripgrep.nvim', version = '5ed7bac817777994cb80abccd052b73eb844166c' },
   -- mgalliou/blink-cmp-tmux @ HEAD (2026-07-16; no tagged releases)
   { src = 'https://github.com/mgalliou/blink-cmp-tmux', version = '112ddbf2e09d9cb4736de70dd01eb9654cf01d70' },
-  -- joelazar/blink-calc @ HEAD (no tagged releases; smaller/less-established source)
-  { src = 'https://github.com/joelazar/blink-calc', version = '1b75c20cbb21c95bf08694eed605fa0bdbbe5ca2' },
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
@@ -59,9 +57,11 @@ do
         lsp = {
           score_offset = 5,
         },
+        -- Self-written (lua/pycalc.lua): shells out to `python3 -c` with
+        -- `from math import *` and prints the expression before the cursor.
         calc = {
           name = 'Calc',
-          module = 'blink-calc',
+          module = 'pycalc',
         },
         ripgrep = {
           name = 'Ripgrep',
