@@ -27,6 +27,9 @@ vim.pack.add({
   -- nvim-mini/mini.trailspace @ v0.9.0 tag (modern Lua replacement for
   -- vim-better-whitespace; standalone install, not the full mini.nvim bundle)
   { src = 'https://github.com/nvim-mini/mini.trailspace', version = 'c41ab1035d184ff20c1aebd76639320c055afebe' },
+  -- MagicDuck/grug-far.nvim @ 1.6.76 tag (modern replacement for
+  -- nvim-spectre; ripgrep + ast-grep backed find/replace)
+  { src = 'https://github.com/MagicDuck/grug-far.nvim', version = '6e05398cf6cad05b3fb46569db96b1ccfcbbd402' },
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
@@ -109,6 +112,9 @@ vim.lsp.enable('clangd')
 -- Highlight trailing whitespace; :lua MiniTrailspace.trim() to strip it
 -- (not automatic on save, matching vim-better-whitespace's own default).
 require('mini.trailspace').setup()
+
+-- Find/replace across the project. :GrugFar to open; no required options.
+require('grug-far').setup()
 
 -- Diagnostic float/loclist (next/prev jump is already ]d/[d, a core default;
 -- ]e/[e are left alone for vim-unimpaired's line-exchange mapping)
