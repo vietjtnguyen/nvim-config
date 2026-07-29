@@ -67,6 +67,8 @@ vim.pack.add({
   -- they installed. treewalker uses core vim.treesitter directly, no nvim-
   -- treesitter dependency at all.
   { src = 'https://github.com/aaronik/treewalker.nvim', version = '228f9cd84e7ee45c72e4c9c5c0523e50f13ad520' },
+  -- folke/which-key.nvim @ v3.17.0 tag
+  { src = 'https://github.com/folke/which-key.nvim', version = 'fcbf4eea17cb299c02557d576f0d568878e354a4' },
 })
 
 --------------------------------------------------------------------------------
@@ -345,6 +347,12 @@ end
 -- 'formatexpr' on attach -- see :help lsp-defaults.
 vim.lsp.enable('clangd')
 
+-- Core leaves definition/declaration to the tag mechanism (<C-]> via
+-- 'tagfunc'); add discoverable keys in the same gr* namespace. grd/grD, not
+-- gd/gD, so Vim's built-in gd/gD (in-file declaration search) still work.
+vim.keymap.set('n', 'grd', vim.lsp.buf.definition, { desc = 'Definition' })
+vim.keymap.set('n', 'grD', vim.lsp.buf.declaration, { desc = 'Declaration' })
+
 --------------------------------------------------------------------------------
 -- Reference highlighting (lua/navigate_references.lua)
 --------------------------------------------------------------------------------
@@ -388,3 +396,30 @@ require('grug-far').setup()
 -- left alone for vim-unimpaired's line-exchange mapping)
 vim.keymap.set({ 'n', 'v', 'o' }, 'ge', vim.diagnostic.open_float, { desc = 'Open Diagnostic' })
 vim.keymap.set({ 'n', 'v', 'o' }, 'gE', vim.diagnostic.setloclist, { desc = 'Diagnostics to Loc List' })
+
+--------------------------------------------------------------------------------
+-- Which-key (keymap discovery)
+--------------------------------------------------------------------------------
+-- Pop up the available follow-on keys after a prefix (e.g. <Space>), read from
+-- the `desc` set on each keymap. icons.mappings is off: no icon provider
+-- (mini.icons / nvim-web-devicons) is installed, so keep the menu text-only.
+require('which-key').setup({
+  icons = { mappings = false },
+})
+
+-- Group the multi-level prefixes and give the core LSP defaults (gr*, gO, K)
+-- friendly names -- their built-in descriptions are raw like
+-- "vim.lsp.buf.rename()". desc-only entries relabel the which-key popup
+-- without creating mappings, so K keeps its default (buffer-local) behavior.
+require('which-key').add({
+  { '<Space>g', group = 'git' },
+  { 'gr', group = 'lsp' },
+  { 'gra', desc = 'Code Action', mode = { 'n', 'x' } },
+  { 'gri', desc = 'Implementations' },
+  { 'grn', desc = 'Rename' },
+  { 'grr', desc = 'References' },
+  { 'grt', desc = 'Type Definition' },
+  { 'grx', desc = 'Run CodeLens' },
+  { 'gO', desc = 'Document Symbols' },
+  { 'K', desc = 'Hover Docs' },
+})
