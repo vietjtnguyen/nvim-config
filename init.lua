@@ -40,9 +40,9 @@ vim.pack.add({
 -- legacy regex :syntax for that buffer automatically (see
 -- runtime/lua/vim/treesitter/highlighter.lua) -- this is what actually
 -- avoids the classic "syntax plugin fighting treesitter" conflict.
-require('nvim-treesitter').install({ 'cpp' })
+require('nvim-treesitter').install({ 'cpp', 'python' })
 vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'cpp',
+  pattern = { 'cpp', 'python' },
   callback = function() vim.treesitter.start() end,
 })
 
