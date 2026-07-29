@@ -46,10 +46,26 @@ vim.pack.add({
   { src = 'https://github.com/nvim-lua/plenary.nvim', version = '50012918b2fc8357b87cff2a7f7f0446e47da174' },
   -- nvim-telescope/telescope.nvim @ v0.2.2 tag
   { src = 'https://github.com/nvim-telescope/telescope.nvim', version = '5255aa27c422de944791318024167ad5d40aad20' },
+  -- nvim-telescope/telescope-fzf-native.nvim @ HEAD (no tagged releases)
+  { src = 'https://github.com/nvim-telescope/telescope-fzf-native.nvim', version = 'b25b749b9db64d375d782094e2b9dce53ad53a40' },
 })
 
 -- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
 require('telescope').setup({})
+
+-- telescope-fzf-native has no vim.pack build hook (unlike lazy.nvim's
+-- `build = 'make'`), so compile it here if the .so isn't there yet.
+do
+  local plug = vim.pack.get({ 'telescope-fzf-native.nvim' })[1]
+  if plug and vim.fn.glob(plug.path .. '/build/libfzf*') == '' then
+    local res = vim.system({ 'make', '-C', plug.path }):wait()
+    if res.code ~= 0 then
+      vim.notify('telescope-fzf-native build failed: ' .. (res.stderr or ''), vim.log.levels.ERROR)
+    end
+  end
+end
+require('telescope').load_extension('fzf')
+
 for _, m in ipairs({
   { '<Space>b', 'buffers', 'Buffers' },
   { '<Space>e', 'diagnostics', 'Diagnostics' },
