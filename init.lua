@@ -51,7 +51,28 @@ vim.pack.add({
   -- debugloop/telescope-undo.nvim @ HEAD (no tagged releases; last pushed
   -- 2025-01-31 -- stale but still functional, no real equivalent elsewhere)
   { src = 'https://github.com/debugloop/telescope-undo.nvim', version = '928d0c2dc9606e01e2cc547196f48d2eaecf58e5' },
+  -- aaronik/treewalker.nvim @ HEAD (no tagged releases). Picked over
+  -- tree-climber.nvim and jump-tag, both of which throw errors on this
+  -- Neovim: they call into nvim-treesitter's old pre-rewrite helper
+  -- modules (nvim-treesitter.parsers / .ts_utils), removed when
+  -- nvim-treesitter was rewritten. Confirmed by actually calling their
+  -- functions, not just checking they installed. treewalker uses core
+  -- vim.treesitter directly, no nvim-treesitter dependency at all.
+  { src = 'https://github.com/aaronik/treewalker.nvim', version = '228f9cd84e7ee45c72e4c9c5c0523e50f13ad520' },
 })
+
+-- Move the cursor through the treesitter tree without selecting (complements
+-- core's an/in/]n/[n/]N/[N, which are selection-oriented -- see :help
+-- treesitter-incremental-selection). Ctrl+Arrow to match the existing
+-- Alt+Arrow pane-nav convention in vimrc. treewalker's own Up/Down/Left/Right
+-- names mean prev-sibling/next-sibling/ancestor/child (an outline-indent
+-- metaphor); remapped here to the more direct up=parent/down=child
+-- compass metaphor for the arrow keys specifically.
+require('treewalker').setup()
+vim.keymap.set({ 'n', 'v' }, '<C-Left>', '<cmd>Treewalker Up<cr>', { desc = 'Treesitter: prev sibling' })
+vim.keymap.set({ 'n', 'v' }, '<C-Right>', '<cmd>Treewalker Down<cr>', { desc = 'Treesitter: next sibling' })
+vim.keymap.set({ 'n', 'v' }, '<C-Up>', '<cmd>Treewalker Left<cr>', { desc = 'Treesitter: parent' })
+vim.keymap.set({ 'n', 'v' }, '<C-Down>', '<cmd>Treewalker Right<cr>', { desc = 'Treesitter: child' })
 
 -- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
 require('telescope').setup({})
