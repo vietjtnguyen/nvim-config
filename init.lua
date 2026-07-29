@@ -353,6 +353,12 @@ vim.lsp.enable('clangd')
 vim.keymap.set('n', 'grd', vim.lsp.buf.definition, { desc = 'Definition' })
 vim.keymap.set('n', 'grD', vim.lsp.buf.declaration, { desc = 'Declaration' })
 
+-- Inlay hints (parameter names, deduced types) off by default -- grI toggles
+-- them globally. Kept in the gr* namespace so which-key groups it under "lsp".
+vim.keymap.set('n', 'grI', function()
+  vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
+end, { desc = 'Toggle Inlay Hints' })
+
 --------------------------------------------------------------------------------
 -- Reference highlighting (lua/navigate_references.lua)
 --------------------------------------------------------------------------------
