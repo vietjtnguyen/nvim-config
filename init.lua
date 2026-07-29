@@ -1,18 +1,26 @@
+--------------------------------------------------------------------------------
+-- Shared vim/nvim settings
+--------------------------------------------------------------------------------
 -- Shared settings (also symlinked to ~/.vimrc for vanilla vim)
 vim.cmd('source ~/.vimrc')
 
--- Plugins, managed by Neovim's built-in plugin manager (vim.pack, Neovim 0.12+).
--- Add entries here and restart; use :Pack update to update, :Pack remove to drop.
+--------------------------------------------------------------------------------
+-- Plugins
+--------------------------------------------------------------------------------
+-- Plugins, managed by Neovim's built-in plugin manager (vim.pack, Neovim
+-- 0.12+). Add entries here and restart; use :Pack update to update, :Pack
+-- remove to drop.
 --
--- Always pin `version` to a full commit SHA, never a branch or tag/range.
--- A tag can be retagged and a range trusts the author's semver correctness;
--- a SHA can't drift. This also makes nvim-pack-lock.json fully derivable from
--- this file, so it's gitignored rather than committed.
--- Bump deliberately with :Pack update, then copy the new SHA in below.
+-- Always pin `version` to a full commit SHA, never a branch or tag/range. A tag
+-- can be retagged and a range trusts the author's semver correctness; a SHA
+-- can't drift. This also makes nvim-pack-lock.json fully derivable from this
+-- file, so it's gitignored rather than committed. Bump deliberately with :Pack
+-- update, then copy the new SHA in below.
 vim.pack.add({
   -- tpope/vim-vinegar @ master, bb1bcdd (2022-01-11)
   { src = 'https://github.com/tpope/vim-vinegar', version = 'bb1bcddf43cfebe05eb565a84ab069b357d0b3d6' },
-  -- saghen/blink.cmp @ v1.10.2 tag (2026 stable v1 line; v2/main has breaking changes)
+  -- saghen/blink.cmp @ v1.10.2 tag (2026 stable v1 line; v2/main has breaking
+  -- changes)
   { src = 'https://github.com/Saghen/blink.cmp', version = '9b189bb2a0e03412e0e901dfbd09904f86cd593c' },
   -- mikavilpas/blink-ripgrep.nvim @ v2.2.6 tag
   { src = 'https://github.com/mikavilpas/blink-ripgrep.nvim', version = '5ed7bac817777994cb80abccd052b73eb844166c' },
@@ -27,12 +35,12 @@ vim.pack.add({
   -- nvim-mini/mini.trailspace @ v0.9.0 tag (modern Lua replacement for
   -- vim-better-whitespace; standalone install, not the full mini.nvim bundle)
   { src = 'https://github.com/nvim-mini/mini.trailspace', version = 'c41ab1035d184ff20c1aebd76639320c055afebe' },
-  -- MagicDuck/grug-far.nvim @ 1.6.76 tag (modern replacement for
-  -- nvim-spectre; ripgrep + ast-grep backed find/replace)
+  -- MagicDuck/grug-far.nvim @ 1.6.76 tag (modern replacement for nvim-spectre;
+  -- ripgrep + ast-grep backed find/replace)
   { src = 'https://github.com/MagicDuck/grug-far.nvim', version = '6e05398cf6cad05b3fb46569db96b1ccfcbbd402' },
-  -- nvim-treesitter/nvim-treesitter @ HEAD (2026-07; post-rewrite "main"
-  -- branch releases continuously, no meaningful tags -- the v0.9.x tags
-  -- are leftovers from the pre-rewrite branch)
+  -- nvim-treesitter/nvim-treesitter @ HEAD (2026-07; post-rewrite "main" branch
+  -- releases continuously, no meaningful tags -- the v0.9.x tags are leftovers
+  -- from the pre-rewrite branch)
   { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = '61df84986b4b4ec469ee745a182e433d49f8c27e' },
   -- ellisonleao/gruvbox.nvim @ v2.0.0 tag
   { src = 'https://github.com/ellisonleao/gruvbox.nvim', version = 'ca36abf47f1d0ad577b464980a3d4af51bb26203' },
@@ -51,28 +59,31 @@ vim.pack.add({
   -- debugloop/telescope-undo.nvim @ HEAD (no tagged releases; last pushed
   -- 2025-01-31 -- stale but still functional, no real equivalent elsewhere)
   { src = 'https://github.com/debugloop/telescope-undo.nvim', version = '928d0c2dc9606e01e2cc547196f48d2eaecf58e5' },
-  -- aaronik/treewalker.nvim @ HEAD (no tagged releases). Picked over
-  -- tree-climber.nvim and jump-tag, both of which throw errors on this
-  -- Neovim: they call into nvim-treesitter's old pre-rewrite helper
-  -- modules (nvim-treesitter.parsers / .ts_utils), removed when
-  -- nvim-treesitter was rewritten. Confirmed by actually calling their
-  -- functions, not just checking they installed. treewalker uses core
-  -- vim.treesitter directly, no nvim-treesitter dependency at all.
+  -- aaronik/treewalker.nvim @ HEAD (no tagged releases). Picked over tree-
+  -- climber.nvim and jump-tag, both of which throw errors on this Neovim: they
+  -- call into nvim-treesitter's old pre-rewrite helper modules (nvim-
+  -- treesitter.parsers / .ts_utils), removed when nvim-treesitter was
+  -- rewritten. Confirmed by actually calling their functions, not just checking
+  -- they installed. treewalker uses core vim.treesitter directly, no nvim-
+  -- treesitter dependency at all.
   { src = 'https://github.com/aaronik/treewalker.nvim', version = '228f9cd84e7ee45c72e4c9c5c0523e50f13ad520' },
 })
 
+--------------------------------------------------------------------------------
+-- Treesitter navigation (treewalker.nvim)
+--------------------------------------------------------------------------------
 -- Move the cursor through the treesitter tree without selecting (complements
 -- core's an/in/]n/[n/]N/[N, which are selection-oriented -- see :help
--- treesitter-incremental-selection). Ctrl+Arrow to match the existing
--- Alt+Arrow pane-nav convention in vimrc. treewalker's own Up/Down/Left/Right
--- names mean prev-sibling/next-sibling/ancestor/child (an outline-indent
--- metaphor); remapped here to the more direct up=parent/down=child
--- compass metaphor for the arrow keys specifically.
+-- treesitter-incremental-selection). Ctrl+Arrow to match the existing Alt+Arrow
+-- pane-nav convention in vimrc. treewalker's own Up/Down/Left/Right names mean
+-- prev-sibling/next-sibling/ancestor/child (an outline-indent metaphor);
+-- remapped here to the more direct up=parent/down=child compass metaphor for
+-- the arrow keys specifically.
 require('treewalker').setup()
 
--- After each move, flash all four *next-possible* destinations (not just
--- the node just landed on, which treewalker already flashes itself) so the
--- next Ctrl+Arrow's target is visible before pressing it. Reaches into
+-- After each move, flash all four *next-possible* destinations (not just the
+-- node just landed on, which treewalker already flashes itself) so the next
+-- Ctrl+Arrow's target is visible before pressing it. Reaches into
 -- treewalker.anchor's find_* functions -- the same lookups its own move
 -- commands use internally -- since there's no public "peek" API for this.
 -- Undocumented/internal, so a future treewalker update could rename or
@@ -128,11 +139,14 @@ do
   vim.keymap.set({ 'n', 'v' }, '<C-Down>', move_and_preview('Right'), { desc = 'Treesitter: child' })
 end
 
+--------------------------------------------------------------------------------
+-- Telescope (fuzzy finder)
+--------------------------------------------------------------------------------
 -- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
 require('telescope').setup({})
 
--- telescope-fzf-native has no vim.pack build hook (unlike lazy.nvim's
--- `build = 'make'`), so compile it here if the .so isn't there yet.
+-- telescope-fzf-native has no vim.pack build hook (unlike lazy.nvim's `build =
+-- 'make'`), so compile it here if the .so isn't there yet.
 do
   local plug = vim.pack.get({ 'telescope-fzf-native.nvim' })[1]
   if plug and vim.fn.glob(plug.path .. '/build/libfzf*') == '' then
@@ -169,11 +183,11 @@ for _, m in ipairs({
 end
 
 -- Project-wide LSP symbol search. Deliberately lsp_dynamic_workspace_symbols,
--- not lsp_workspace_symbols: the static version sends one empty-query
--- request up front and filters that fixed list locally, which can look
+-- not lsp_workspace_symbols: the static version sends one empty-query request
+-- up front and filters that fixed list locally, which can look
 -- broken/incomplete if the server returns little for an empty query. The
--- dynamic version re-sends workspace/symbol with the actual typed text on
--- every keystroke, so the server does the real project-wide search.
+-- dynamic version re-sends workspace/symbol with the actual typed text on every
+-- keystroke, so the server does the real project-wide search.
 vim.keymap.set({ 'n', 'v', 'o' }, '<Space>s', function()
   require('telescope.builtin').lsp_dynamic_workspace_symbols()
 end, { desc = 'Workspace Symbols' })
@@ -188,8 +202,11 @@ vim.keymap.set({ 'n', 'v', 'o' }, '<Space>m', function()
   })
 end, { desc = 'Workspace Symbols: Functions/Methods' })
 
--- Configured but not activated (github_dark is the default below); switch
--- to it with :colorscheme onedark.
+--------------------------------------------------------------------------------
+-- Colorschemes
+--------------------------------------------------------------------------------
+-- Configured but not activated (github_dark is the default below); switch to it
+-- with :colorscheme onedark.
 require('onedark').setup({
   style = 'cool',
   transparent = true,
@@ -230,41 +247,47 @@ require('github-theme').setup({
 })
 vim.cmd.colorscheme('github_dark')
 
--- Treesitter-based syntax highlighting. vim.treesitter.start() disables
--- legacy regex :syntax for that buffer automatically (see
--- runtime/lua/vim/treesitter/highlighter.lua) -- this is what actually
--- avoids the classic "syntax plugin fighting treesitter" conflict.
--- Note: the tree-sitter grammar/parser is named 'bash', but Neovim's
--- filetype for bash/sh scripts is 'sh' (even for a #!/bin/bash shebang).
+--------------------------------------------------------------------------------
+-- Treesitter syntax highlighting
+--------------------------------------------------------------------------------
+-- Treesitter-based syntax highlighting. vim.treesitter.start() disables legacy
+-- regex :syntax for that buffer automatically (see
+-- runtime/lua/vim/treesitter/highlighter.lua) -- this is what actually avoids
+-- the classic "syntax plugin fighting treesitter" conflict. Note: the tree-
+-- sitter grammar/parser is named 'bash', but Neovim's filetype for bash/sh
+-- scripts is 'sh' (even for a #!/bin/bash shebang).
 require('nvim-treesitter').install({ 'cpp', 'python', 'bash' })
 vim.api.nvim_create_autocmd('FileType', {
   pattern = { 'cpp', 'python', 'sh' },
   callback = function() vim.treesitter.start() end,
 })
 
+--------------------------------------------------------------------------------
+-- Completion (blink.cmp)
+--------------------------------------------------------------------------------
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
 -- only offers an LSP source. blink.cmp implements its own LSP source rather
 -- than building on vim.lsp.completion, so the two are never wired up together.
 do
   local blink = require('blink.cmp')
 
-  -- Advertise blink.cmp's enhanced capabilities (snippets, richer item
-  -- kinds, etc.) to every LSP server, not just clangd.
+  -- Advertise blink.cmp's enhanced capabilities (snippets, richer item kinds,
+  -- etc.) to every LSP server, not just clangd.
   vim.lsp.config('*', { capabilities = blink.get_lsp_capabilities() })
 
   blink.setup({
     keymap = {
       preset = 'default',
-      -- Old nvim-cmp muscle memory: <CR> confirms the selection; falls
-      -- through to a normal newline when the menu isn't showing.
+      -- Old nvim-cmp muscle memory: <CR> confirms the selection; falls through
+      -- to a normal newline when the menu isn't showing.
       ['<CR>'] = { 'select_and_accept', 'fallback' },
     },
     completion = {
       list = {
         selection = {
           preselect = true,
-          -- Don't mutate the buffer while cycling candidates -- only on
-          -- accept. Ghost text still previews the selection.
+          -- Don't mutate the buffer while cycling candidates -- only on accept.
+          -- Ghost text still previews the selection.
           auto_insert = false,
         },
       },
@@ -279,8 +302,8 @@ do
         lsp = {
           score_offset = 5,
         },
-        -- Self-written (lua/pycalc.lua): shells out to `python3 -c` with
-        -- `from math import *` and prints the expression before the cursor.
+        -- Self-written (lua/pycalc.lua): shells out to `python3 -c` with `from
+        -- math import *` and prints the expression before the cursor.
         calc = {
           name = 'Calc',
           module = 'pycalc',
@@ -313,20 +336,32 @@ do
   vim.api.nvim_set_hl(0, 'BlinkCmpGhostText', { link = 'Comment' })
 end
 
--- LSP servers. Each has a config file at lsp/<name>.lua; enabling it here
--- is what actually starts the client. Core Neovim already provides the
--- attach keymaps (gra/gri/grn/grr/grt/gO/K/i_CTRL-S) and sets 'omnifunc',
--- 'tagfunc', 'formatexpr' on attach -- see :help lsp-defaults.
+--------------------------------------------------------------------------------
+-- LSP servers
+--------------------------------------------------------------------------------
+-- Each has a config file at lsp/<name>.lua; enabling it here is what actually
+-- starts the client. Core Neovim already provides the attach keymaps
+-- (gra/gri/grn/grr/grt/gO/K/i_CTRL-S) and sets 'omnifunc', 'tagfunc',
+-- 'formatexpr' on attach -- see :help lsp-defaults.
 vim.lsp.enable('clangd')
 
--- Highlight trailing whitespace; :lua MiniTrailspace.trim() to strip it
--- (not automatic on save, matching vim-better-whitespace's own default).
+--------------------------------------------------------------------------------
+-- Whitespace (mini.trailspace)
+--------------------------------------------------------------------------------
+-- Highlight trailing whitespace; :lua MiniTrailspace.trim() to strip it (not
+-- automatic on save, matching vim-better-whitespace's own default).
 require('mini.trailspace').setup()
 
+--------------------------------------------------------------------------------
+-- Find & replace (grug-far.nvim)
+--------------------------------------------------------------------------------
 -- Find/replace across the project. :GrugFar to open; no required options.
 require('grug-far').setup()
 
--- Diagnostic float/loclist (next/prev jump is already ]d/[d, a core default;
--- ]e/[e are left alone for vim-unimpaired's line-exchange mapping)
+--------------------------------------------------------------------------------
+-- Diagnostics
+--------------------------------------------------------------------------------
+-- Float/loclist (next/prev jump is already ]d/[d, a core default; ]e/[e are
+-- left alone for vim-unimpaired's line-exchange mapping)
 vim.keymap.set({ 'n', 'v', 'o' }, 'ge', vim.diagnostic.open_float, { desc = 'Open Diagnostic' })
 vim.keymap.set({ 'n', 'v', 'o' }, 'gE', vim.diagnostic.setloclist, { desc = 'Diagnostics to Loc List' })
