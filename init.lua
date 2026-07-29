@@ -36,6 +36,8 @@ vim.pack.add({
   { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = '61df84986b4b4ec469ee745a182e433d49f8c27e' },
   -- ellisonleao/gruvbox.nvim @ v2.0.0 tag
   { src = 'https://github.com/ellisonleao/gruvbox.nvim', version = 'ca36abf47f1d0ad577b464980a3d4af51bb26203' },
+  -- folke/tokyonight.nvim @ v4.9.0 tag
+  { src = 'https://github.com/folke/tokyonight.nvim', version = '19f39b53ef5e148bf94ea3696df36175af7e31e6' },
 })
 
 -- Treesitter-based syntax highlighting. vim.treesitter.start() disables
