@@ -42,7 +42,36 @@ vim.pack.add({
   { src = 'https://github.com/navarasu/onedark.nvim', version = '631085064d202d07e4b677f11dcd24383f5c6fd9' },
   -- projekt0n/github-nvim-theme @ v1.1.2 tag
   { src = 'https://github.com/projekt0n/github-nvim-theme', version = 'd26a5f523b292c80cf396ed40623534bbc8756be' },
+  -- nvim-lua/plenary.nvim @ v0.1.4 tag (telescope.nvim dependency)
+  { src = 'https://github.com/nvim-lua/plenary.nvim', version = '50012918b2fc8357b87cff2a7f7f0446e47da174' },
+  -- nvim-telescope/telescope.nvim @ v0.2.2 tag
+  { src = 'https://github.com/nvim-telescope/telescope.nvim', version = '5255aa27c422de944791318024167ad5d40aad20' },
 })
+
+-- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
+require('telescope').setup({})
+for _, m in ipairs({
+  { '<Space>b', 'buffers', 'Buffers' },
+  { '<Space>e', 'diagnostics', 'Diagnostics' },
+  { '<Space>F', 'current_buffer_fuzzy_find', 'Buffer Fuzzy Find' },
+  { '<Space>f', 'live_grep', 'Live Grep' },
+  { '<Space>gb', 'git_branches', 'Git Branches' },
+  { '<Space>gC', 'git_bcommits', 'Git Commits (buffer)' },
+  { '<Space>gc', 'git_commits', 'Git Commits' },
+  { '<Space>gs', 'git_status', 'Git Status' },
+  { '<Space>J', 'jumplist', 'Jump List' },
+  { '<Space>k', 'keymaps', 'Key Maps' },
+  { '<Space>K', 'man_pages', 'Man Pages' },
+  { '<Space>L', 'loclist', 'Location List' },
+  { '<Space>p', 'find_files', 'Find Files' },
+  { '<Space>P', 'oldfiles', 'Recent Files' },
+  { '<Space>q', 'builtin', 'Telescope Built In' },
+  { '<Space>Q', 'quickfix', 'Quick Fix List' },
+  { '<Space>T', 'treesitter', 'Treesitter' },
+}) do
+  local lhs, builtin, desc = m[1], m[2], m[3]
+  vim.keymap.set({ 'n', 'v', 'o' }, lhs, function() require('telescope.builtin')[builtin]() end, { desc = desc })
+end
 
 -- Configured but not activated (github_dark is the default below); switch
 -- to it with :colorscheme onedark.
