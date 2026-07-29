@@ -20,6 +20,8 @@ vim.pack.add({
   { src = 'https://github.com/mgalliou/blink-cmp-tmux', version = '112ddbf2e09d9cb4736de70dd01eb9654cf01d70' },
   -- tpope/vim-fugitive @ v3.7 tag
   { src = 'https://github.com/tpope/vim-fugitive', version = '96c1009fcf8ce60161cc938d149dd5a66d570756' },
+  -- tpope/vim-surround @ v2.2 tag
+  { src = 'https://github.com/tpope/vim-surround', version = 'aeb933272e72617f7c4d35e1f003be16836b948d' },
 })
 
 -- Completion, via blink.cmp -- not Neovim's native vim.lsp.completion, which
