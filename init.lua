@@ -5,6 +5,14 @@
 vim.cmd('source ~/.vimrc')
 
 --------------------------------------------------------------------------------
+-- Highlight on yank
+--------------------------------------------------------------------------------
+-- Briefly flash the yanked region so it's clear what got copied.
+vim.api.nvim_create_autocmd('TextYankPost', {
+  callback = function() vim.hl.on_yank({ higroup = 'Visual', timeout = 150 }) end,
+})
+
+--------------------------------------------------------------------------------
 -- Plugins
 --------------------------------------------------------------------------------
 -- Plugins, managed by Neovim's built-in plugin manager (vim.pack, Neovim
