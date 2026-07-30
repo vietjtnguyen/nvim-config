@@ -304,7 +304,7 @@ do
       },
       ghost_text = { enabled = true },
     },
-    signature = { enabled = true, window = { border = 'single' } },
+    signature = { enabled = true, window = { border = 'none' } },
     sources = {
       default = { 'lsp', 'path', 'snippets', 'buffer', 'calc', 'ripgrep', 'tmux' },
       providers = {
