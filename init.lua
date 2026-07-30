@@ -452,13 +452,25 @@ end
 -- starts the client. Core Neovim already provides the attach keymaps
 -- (gra/gri/grn/grr/grt/gO/K/i_CTRL-S) and sets 'omnifunc', 'tagfunc',
 -- 'formatexpr' on attach -- see :help lsp-defaults.
-vim.lsp.enable('clangd')
+-- Enable only servers whose binary is on PATH, so a not-yet-installed tool
+-- (e.g. basedpyright/ruff before `uv tool install ...`) doesn't spawn-error on
+-- every buffer. Install the tool, then restart to pick it up.
+for server, bin in pairs({
+  clangd = 'clangd',
+  basedpyright = 'basedpyright-langserver',
+  ruff = 'ruff',
+}) do
+  if vim.fn.executable(bin) == 1 then vim.lsp.enable(server) end
+end
 
 -- Core leaves definition/declaration to the tag mechanism (<C-]> via
 -- 'tagfunc'); add discoverable keys in the same gr* namespace. grd/grD, not
 -- gd/gD, so Vim's built-in gd/gD (in-file declaration search) still work.
 vim.keymap.set('n', 'grd', vim.lsp.buf.definition, { desc = 'Definition' })
 vim.keymap.set('n', 'grD', vim.lsp.buf.declaration, { desc = 'Declaration' })
+-- LSP formatting (ruff for python, clang-format via clangd for C/C++, ...).
+-- Replaces the old gF; in the gr* namespace so which-key groups it under lsp.
+vim.keymap.set('n', 'grF', function() vim.lsp.buf.format() end, { desc = 'Format' })
 
 -- Inlay hints (parameter names, deduced types) off by default -- grI toggles
 -- them globally. Kept in the gr* namespace so which-key groups it under "lsp".
