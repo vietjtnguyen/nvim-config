@@ -271,11 +271,20 @@ vim.cmd.colorscheme('github_dark')
 -- spans); fenced code blocks are highlighted by injection via the parsers
 -- above.
 require('nvim-treesitter').install({
-  'cpp', 'python', 'bash', 'markdown', 'markdown_inline',
+  'bash', 'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
+  'markdown', 'markdown_inline', 'python', 'rust',
 })
+-- Filetype names, not parser names (they differ for a few: the 'bash' parser
+-- highlights the 'sh' filetype; markdown_inline has no filetype of its own, it
+-- is injected by the markdown parser). pcall so a not-yet-compiled parser
+-- (install() runs async on first launch) fails quietly instead of erroring;
+-- it highlights once the parser is built and the buffer is reopened.
 vim.api.nvim_create_autocmd('FileType', {
-  pattern = { 'cpp', 'python', 'sh', 'markdown' },
-  callback = function() vim.treesitter.start() end,
+  pattern = {
+    'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
+    'markdown', 'python', 'rust', 'sh',
+  },
+  callback = function() pcall(vim.treesitter.start) end,
 })
 
 -- github_dark colors fenced code like normal text, so untagged blocks don't
