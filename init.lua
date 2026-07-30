@@ -304,7 +304,7 @@ do
       },
       ghost_text = { enabled = true },
     },
-    signature = { enabled = true },
+    signature = { enabled = true, window = { border = 'single' } },
     sources = {
       default = { 'lsp', 'path', 'snippets', 'buffer', 'calc', 'ripgrep', 'tmux' },
       providers = {
@@ -344,7 +344,23 @@ do
       end,
     },
   })
-  vim.api.nvim_set_hl(0, 'BlinkCmpGhostText', { link = 'Comment' })
+  -- blink's float highlights fall back to NormalFloat, which the transparent
+  -- theme leaves with no background -- so the signature popup shows the code
+  -- behind it. Give it the completion menu's solid look (Pmenu), emphasize the
+  -- active parameter, and dim the ghost text. Re-applied on ColorScheme, which
+  -- clears these.
+  local function blink_hl()
+    vim.api.nvim_set_hl(0, 'BlinkCmpGhostText', { link = 'Comment' })
+    vim.api.nvim_set_hl(0, 'BlinkCmpSignatureHelp', { link = 'Pmenu' })
+    vim.api.nvim_set_hl(0, 'BlinkCmpSignatureHelpBorder', { link = 'Pmenu' })
+    vim.api.nvim_set_hl(0, 'BlinkCmpSignatureHelpActiveParameter',
+      { bold = true, underline = true })
+  end
+  blink_hl()
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('blink-hl', { clear = true }),
+    callback = blink_hl,
+  })
 end
 
 --------------------------------------------------------------------------------
