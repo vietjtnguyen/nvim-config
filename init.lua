@@ -7,9 +7,10 @@ vim.cmd('source ~/.vimrc')
 --------------------------------------------------------------------------------
 -- Highlight on yank
 --------------------------------------------------------------------------------
--- Briefly flash the yanked region so it's clear what got copied.
+-- Briefly flash the yanked region so it's clear what got copied. IncSearch is
+-- a high-contrast group, so the flash stays visible over 'cursorline'.
 vim.api.nvim_create_autocmd('TextYankPost', {
-  callback = function() vim.hl.on_yank({ higroup = 'Visual', timeout = 150 }) end,
+  callback = function() vim.hl.on_yank({ higroup = 'IncSearch', timeout = 200 }) end,
 })
 
 --------------------------------------------------------------------------------
@@ -366,6 +367,22 @@ vim.keymap.set('n', 'grD', vim.lsp.buf.declaration, { desc = 'Declaration' })
 vim.keymap.set('n', 'grI', function()
   vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
 end, { desc = 'Toggle Inlay Hints' })
+
+-- github_dark's LspInlayHint bg is too faint against a transparent background,
+-- so hints read like code. Restyle: dim (Comment) italic text on the Visual
+-- background, re-applied on ColorScheme since a switch clears it.
+do
+  local function set_inlay_hl()
+    local vis = vim.api.nvim_get_hl(0, { name = 'Visual', link = false })
+    local com = vim.api.nvim_get_hl(0, { name = 'Comment', link = false })
+    vim.api.nvim_set_hl(0, 'LspInlayHint', { fg = com.fg, bg = vis.bg, italic = true })
+  end
+  set_inlay_hl()
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('inlay-hint-hl', { clear = true }),
+    callback = set_inlay_hl,
+  })
+end
 
 --------------------------------------------------------------------------------
 -- Reference highlighting (lua/navigate_references.lua)
