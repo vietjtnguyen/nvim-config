@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Example wrapper: copy to `.container-clangd` at your project root and
+# `chmod +x` it. When present and executable, this Neovim config launches
+# clangd through it (see lsp/clangd.lua) instead of the host clangd -- so the
+# language server runs inside your build container, with the exact toolchain,
+# headers, SDKs, and generated files the real build uses.
+set -euo pipefail
+
+runtime="${CONTAINER_RUNTIME:-docker}"           # or: podman
+container="${CLANGD_CONTAINER:-my-project-dev}"   # your dev container name
+project_root="$(git rev-parse --show-toplevel)"
+
+command -v "$runtime" >/dev/null 2>&1 \
+  || { echo "error: container runtime not found: $runtime" >&2; exit 127; }
+"$runtime" inspect "$container" >/dev/null 2>&1 \
+  || { echo "error: no such container: $container" >&2; exit 1; }
+[ "$("$runtime" inspect -f '{{.State.Running}}' "$container")" = "true" ] \
+  || { echo "error: container not running: $container" >&2; exit 1; }
+
+# A same-path mount (host repo path == container mount path, e.g.
+# `-v "$PWD:$PWD"`) needs no mapping. If the container mounts the repo
+# elsewhere (e.g. /workspace), uncomment and adjust -- clangd rewrites the
+# editor<->disk URIs both ways, first match wins:
+#   map=(--path-mappings="$project_root=/workspace")
+map=()
+
+# -i (not -it): a pseudo-terminal would corrupt the LSP protocol stream.
+exec "$runtime" exec -i \
+  --workdir "$project_root" \
+  "$container" \
+  clangd \
+    --background-index \
+    --clang-tidy \
+    --compile-commands-dir="$project_root/build" \
+    "${map[@]}" \
+    "$@"
