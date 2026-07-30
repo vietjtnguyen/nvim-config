@@ -277,7 +277,7 @@ vim.cmd.colorscheme('github_dark')
 -- above.
 require('nvim-treesitter').install({
   'bash', 'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
-  'markdown', 'markdown_inline', 'python', 'rust',
+  'markdown', 'markdown_inline', 'python', 'rust', 'tsx', 'typescript',
 })
 -- Filetype names, not parser names (they differ for a few: the 'bash' parser
 -- highlights the 'sh' filetype; markdown_inline has no filetype of its own, it
@@ -288,9 +288,15 @@ vim.api.nvim_create_autocmd('FileType', {
   pattern = {
     'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
     'markdown', 'python', 'rosmsg', 'rust', 'sh',
+    'typescript', 'typescriptreact',
   },
   callback = function() pcall(vim.treesitter.start) end,
 })
+
+-- The .tsx filetype is 'typescriptreact' but its parser is named 'tsx'; map it
+-- so vim.treesitter.start() finds the parser. (.ts's 'typescript' filetype
+-- matches its parser name directly.)
+vim.treesitter.language.register('tsx', 'typescriptreact')
 
 -- ROS interface files (.msg/.srv/.action) via SuperJappie08/tree-sitter-ros-
 -- interface, which isn't in nvim-treesitter's registry. Detect the filetype,
