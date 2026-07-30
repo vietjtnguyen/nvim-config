@@ -266,10 +266,15 @@ vim.cmd.colorscheme('github_dark')
 -- runtime/lua/vim/treesitter/highlighter.lua) -- this is what actually avoids
 -- the classic "syntax plugin fighting treesitter" conflict. Note: the tree-
 -- sitter grammar/parser is named 'bash', but Neovim's filetype for bash/sh
--- scripts is 'sh' (even for a #!/bin/bash shebang).
-require('nvim-treesitter').install({ 'cpp', 'python', 'bash' })
+-- scripts is 'sh' (even for a #!/bin/bash shebang). Markdown needs two
+-- parsers -- 'markdown' (blocks) and 'markdown_inline' (emphasis, links, code
+-- spans); fenced code blocks are highlighted by injection via the parsers
+-- above.
+require('nvim-treesitter').install({
+  'cpp', 'python', 'bash', 'markdown', 'markdown_inline',
+})
 vim.api.nvim_create_autocmd('FileType', {
-  pattern = { 'cpp', 'python', 'sh' },
+  pattern = { 'cpp', 'python', 'sh', 'markdown' },
   callback = function() vim.treesitter.start() end,
 })
 
