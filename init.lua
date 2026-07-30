@@ -51,6 +51,11 @@ vim.pack.add({
   -- releases continuously, no meaningful tags -- the v0.9.x tags are leftovers
   -- from the pre-rewrite branch)
   { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = '61df84986b4b4ec469ee745a182e433d49f8c27e' },
+  -- SuperJappie08/tree-sitter-ros-interface @ HEAD (no tags). A treesitter
+  -- grammar for ROS .msg/.srv/.action files; not in nvim-treesitter's
+  -- registry, so it's compiled and registered manually in the Treesitter
+  -- section below.
+  { src = 'https://github.com/SuperJappie08/tree-sitter-ros-interface', version = '9eed3703424441e1c0fec97cb911cfa199bbeef5' },
   -- ellisonleao/gruvbox.nvim @ v2.0.0 tag
   { src = 'https://github.com/ellisonleao/gruvbox.nvim', version = 'ca36abf47f1d0ad577b464980a3d4af51bb26203' },
   -- folke/tokyonight.nvim @ v4.9.0 tag
@@ -282,10 +287,49 @@ require('nvim-treesitter').install({
 vim.api.nvim_create_autocmd('FileType', {
   pattern = {
     'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
-    'markdown', 'python', 'rust', 'sh',
+    'markdown', 'python', 'rosmsg', 'rust', 'sh',
   },
   callback = function() pcall(vim.treesitter.start) end,
 })
+
+-- ROS interface files (.msg/.srv/.action) via SuperJappie08/tree-sitter-ros-
+-- interface, which isn't in nvim-treesitter's registry. Detect the filetype,
+-- then compile the parser to parser/ros_interface.so and copy its queries to
+-- queries/ros_interface/ -- both derived from the pinned grammar (hence
+-- gitignored) -- and map the 'rosmsg' filetype to the parser. The FileType
+-- autocmd above already starts treesitter for 'rosmsg'.
+vim.filetype.add({
+  extension = { msg = 'rosmsg', srv = 'rosmsg', action = 'rosmsg' },
+})
+do
+  local plug = vim.pack.get({ 'tree-sitter-ros-interface' })[1]
+  if plug then
+    local cfg = vim.fn.stdpath('config')
+    local so = cfg .. '/parser/ros_interface.so'
+    if vim.fn.filereadable(so) == 0 then
+      vim.fn.mkdir(cfg .. '/parser', 'p')
+      local res = vim.system({
+        'cc', '-o', so, '-shared', '-fPIC', '-Os',
+        '-I', plug.path .. '/src', plug.path .. '/src/parser.c',
+      }):wait()
+      if res.code ~= 0 then
+        vim.notify('ros_interface parser build failed: ' .. (res.stderr or ''),
+          vim.log.levels.ERROR)
+      end
+    end
+    local qdir = cfg .. '/queries/ros_interface'
+    if vim.fn.isdirectory(qdir) == 0 then
+      vim.fn.mkdir(qdir, 'p')
+      for _, name in ipairs({ 'highlights.scm', 'injections.scm' }) do
+        local src = plug.path .. '/queries/' .. name
+        if vim.fn.filereadable(src) == 1 then
+          vim.fn.writefile(vim.fn.readfile(src), qdir .. '/' .. name)
+        end
+      end
+    end
+    vim.treesitter.language.register('ros_interface', 'rosmsg')
+  end
+end
 
 -- github_dark colors fenced code like normal text, so untagged blocks don't
 -- stand out (tagged blocks get injected syntax). Give the block a subtle

@@ -1,1 +1,5 @@
 nvim-pack-lock.json
+
+# Derived from the pinned tree-sitter-ros-interface grammar (built at startup).
+parser/
+queries/ros_interface/
