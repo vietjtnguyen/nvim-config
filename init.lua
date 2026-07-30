@@ -403,6 +403,28 @@ require('grug-far').setup()
 vim.keymap.set({ 'n', 'v', 'o' }, 'ge', vim.diagnostic.open_float, { desc = 'Open Diagnostic' })
 vim.keymap.set({ 'n', 'v', 'o' }, 'gE', vim.diagnostic.setloclist, { desc = 'Diagnostics to Loc List' })
 
+-- Cycle the inline diagnostic display with <Space>E: off -> current line ->
+-- everywhere. virtual_text stays off in all three (it duplicates
+-- virtual_lines); signs and underline are untouched. Starts on current-line:
+-- the full message where the cursor is, quiet elsewhere.
+do
+  local modes = {
+    { 'off', { virtual_text = false, virtual_lines = false } },
+    { 'current line', { virtual_text = false, virtual_lines = { current_line = true } } },
+    { 'everywhere', { virtual_text = false, virtual_lines = true } },
+  }
+  local i = 2
+  local function apply(notify)
+    vim.diagnostic.config(modes[i][2])
+    if notify then vim.notify('Diagnostics: ' .. modes[i][1]) end
+  end
+  apply(false)
+  vim.keymap.set({ 'n', 'v', 'o' }, '<Space>E', function()
+    i = i % #modes + 1
+    apply(true)
+  end, { desc = 'Cycle Diagnostic Display' })
+end
+
 --------------------------------------------------------------------------------
 -- Which-key (keymap discovery)
 --------------------------------------------------------------------------------
