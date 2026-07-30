@@ -278,6 +278,24 @@ vim.api.nvim_create_autocmd('FileType', {
   callback = function() vim.treesitter.start() end,
 })
 
+-- github_dark colors fenced code like normal text, so untagged blocks don't
+-- stand out (tagged blocks get injected syntax). Give the block a subtle
+-- background (Pmenu's, matching the popup panels and tracking the theme);
+-- leave fg alone so injected syntax and plain text keep their colors. Note:
+-- treesitter backgrounds only cover the text, not full line width. Re-applied
+-- on ColorScheme, which clears it.
+do
+  local function set_code_hl()
+    local pmenu = vim.api.nvim_get_hl(0, { name = 'Pmenu', link = false })
+    vim.api.nvim_set_hl(0, '@markup.raw.block', { bg = pmenu.bg })
+  end
+  set_code_hl()
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('markdown-code-hl', { clear = true }),
+    callback = set_code_hl,
+  })
+end
+
 --------------------------------------------------------------------------------
 -- Completion (blink.cmp)
 --------------------------------------------------------------------------------
