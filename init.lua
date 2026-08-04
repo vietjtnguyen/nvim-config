@@ -337,16 +337,16 @@ do
   end
 end
 
--- github_dark colors fenced code like normal text, so untagged blocks don't
--- stand out (tagged blocks get injected syntax). Give the block a subtle
--- background (Pmenu's, matching the popup panels and tracking the theme);
--- leave fg alone so injected syntax and plain text keep their colors. Note:
--- treesitter backgrounds only cover the text, not full line width. Re-applied
--- on ColorScheme, which clears it.
+-- github_dark colors fenced/inline code like normal text, so it doesn't stand
+-- out. Give the fenced block and inline `code` a subtle background (Pmenu's,
+-- matching the popup panels, tracking the theme); leave fg alone so injected
+-- syntax and plain text keep their colors. Treesitter backgrounds cover the
+-- text, not full line width. Re-applied on ColorScheme, which clears it.
 do
   local function set_code_hl()
     local pmenu = vim.api.nvim_get_hl(0, { name = 'Pmenu', link = false })
-    vim.api.nvim_set_hl(0, '@markup.raw.block', { bg = pmenu.bg })
+    vim.api.nvim_set_hl(0, '@markup.raw', { bg = pmenu.bg }) -- inline `code`
+    vim.api.nvim_set_hl(0, '@markup.raw.block', { bg = pmenu.bg }) -- fenced
   end
   set_code_hl()
   vim.api.nvim_create_autocmd('ColorScheme', {
