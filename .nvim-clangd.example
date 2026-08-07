@@ -1,36 +1,37 @@
 #!/usr/bin/env bash
-# Example wrapper: copy to `.container-clangd` at your project root and
-# `chmod +x` it. When present and executable, this Neovim config launches
-# clangd through it (see lsp/clangd.lua) instead of the host clangd -- so the
-# language server runs inside your build container, with the exact toolchain,
-# headers, SDKs, and generated files the real build uses.
+# Example per-project clangd launcher. Copy to `.nvim-clangd` at a project root
+# and `chmod +x`. When present, this Neovim config roots clangd at the
+# directory containing this file and runs it INSTEAD of the host clangd (see
+# lsp/clangd.lua) -- so the language server can live in a build container with
+# the exact toolchain, headers, and generated files the real build uses.
+#
+# Essentials for a containerized clangd:
+#   - Speak LSP over stdio with `docker exec -i` (NOT -it): a TTY injects
+#     echo/line-editing that corrupts the JSON-RPC byte stream.
+#   - Run clangd DIRECTLY, not via `bash -lc`: a login shell's banner / setup
+#     echoes land on stdout and corrupt the stream too. Use an absolute path or
+#     a versioned name (e.g. clangd-10) if plain `clangd` isn't on the
+#     container's non-login PATH.
+#   - clangd matches files by absolute path, so host and container must agree:
+#     mount the repo at the SAME absolute path (-v "$PWD:$PWD"), or symlink the
+#     host to mirror the container's layout, or (clangd >= 12)
+#     --path-mappings=<host>=<container>.
 set -euo pipefail
 
-runtime="${CONTAINER_RUNTIME:-docker}"           # or: podman
-container="${CLANGD_CONTAINER:-my-project-dev}"   # your dev container name
-project_root="$(git rev-parse --show-toplevel)"
+container="${CLANGD_CONTAINER:-my-project-dev}"
+exec docker exec -i --workdir "$PWD" "$container" clangd --background-index
 
-command -v "$runtime" >/dev/null 2>&1 \
-  || { echo "error: container runtime not found: $runtime" >&2; exit 127; }
-"$runtime" inspect "$container" >/dev/null 2>&1 \
-  || { echo "error: no such container: $container" >&2; exit 1; }
-[ "$("$runtime" inspect -f '{{.State.Running}}' "$container")" = "true" ] \
-  || { echo "error: container not running: $container" >&2; exit 1; }
-
-# A same-path mount (host repo path == container mount path, e.g.
-# `-v "$PWD:$PWD"`) needs no mapping. If the container mounts the repo
-# elsewhere (e.g. /workspace), uncomment and adjust -- clangd rewrites the
-# editor<->disk URIs both ways, first match wins:
-#   map=(--path-mappings="$project_root=/workspace")
-map=()
-
-# -i (not -it): a pseudo-terminal would corrupt the LSP protocol stream.
-exec "$runtime" exec -i \
-  --workdir "$project_root" \
-  "$container" \
-  clangd \
-    --background-index \
-    --clang-tidy \
-    --compile-commands-dir="$project_root/build" \
-    "${map[@]}" \
-    "$@"
+# --- Variants (replace the exec above) ------------------------------------
+#
+# Through a project's own container helper, so the container name/user logic
+# lives in one place. The helper must NOT allocate a TTY:
+#   exec my-helper run --pipe clangd-10 --background-index --clang-tidy "$@"
+#
+# Multi-package workspace (catkin/colcon) with a merged compile_commands.json:
+# keep it fresh with a background merger whose lifetime is tied to clangd --
+# start it, trap-kill it, and DON'T exec clangd so the trap can fire on exit:
+#   set -u
+#   WS="$(cd "$(dirname "$0")" && pwd)"
+#   auto-compdb-merge -I 5 "$WS/build" "$WS/compile_commands.json" &
+#   merger=$!; trap 'kill "$merger" 2>/dev/null' EXIT INT TERM
+#   my-helper run --pipe clangd-10 --background-index --clang-tidy "$@"
