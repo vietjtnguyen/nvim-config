@@ -277,7 +277,7 @@ vim.cmd.colorscheme('github_dark')
 -- above.
 require('nvim-treesitter').install({
   'bash', 'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
-  'markdown', 'markdown_inline', 'python', 'rust', 'tsx', 'typescript',
+  'markdown', 'markdown_inline', 'python', 'rust', 'tsx', 'typescript', 'xml',
 })
 -- Filetype names, not parser names (they differ for a few: the 'bash' parser
 -- highlights the 'sh' filetype; markdown_inline has no filetype of its own, it
@@ -288,9 +288,16 @@ vim.api.nvim_create_autocmd('FileType', {
   pattern = {
     'c', 'cmake', 'cpp', 'css', 'html', 'javascript', 'json',
     'markdown', 'python', 'rosmsg', 'rust', 'sh',
-    'typescript', 'typescriptreact',
+    'typescript', 'typescriptreact', 'xml',
   },
   callback = function() pcall(vim.treesitter.start) end,
+})
+
+-- ROS 1 .launch files are XML (ROS 2's .launch.py/.launch.xml/.launch.yaml are
+-- already detected by their final extension). Map the bare .launch extension so
+-- the xml parser highlights it; the FileType autocmd above starts treesitter.
+vim.filetype.add({
+  extension = { launch = 'xml' },
 })
 
 -- The .tsx filetype is 'typescriptreact' but its parser is named 'tsx'; map it
