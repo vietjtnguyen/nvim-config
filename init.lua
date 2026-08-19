@@ -188,8 +188,8 @@ for _, m in ipairs({
   { '<Space>k', 'keymaps', 'Key Maps' },
   { '<Space>K', 'man_pages', 'Man Pages' },
   { '<Space>L', 'loclist', 'Location List' },
+  { '<Space>o', 'oldfiles', 'Recent Files' },
   { '<Space>p', 'find_files', 'Find Files' },
-  { '<Space>P', 'oldfiles', 'Recent Files' },
   { '<Space>q', 'builtin', 'Telescope Built In' },
   { '<Space>Q', 'quickfix', 'Quick Fix List' },
   { '<Space>T', 'treesitter', 'Treesitter' },
@@ -197,6 +197,13 @@ for _, m in ipairs({
   local lhs, builtin, desc = m[1], m[2], m[3]
   vim.keymap.set({ 'n', 'v', 'o' }, lhs, function() require('telescope.builtin')[builtin]() end, { desc = desc })
 end
+
+-- Like <Space>p, but surfaces everything: hidden dotfiles and .gitignore'd paths
+-- included. Kept separate from the table loop above, which calls builtins with
+-- no options.
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>P', function()
+  require('telescope.builtin').find_files({ hidden = true, no_ignore = true })
+end, { desc = 'Find Files (hidden + ignored)' })
 
 -- Project-wide LSP symbol search. Deliberately lsp_dynamic_workspace_symbols,
 -- not lsp_workspace_symbols: the static version sends one empty-query request
@@ -593,3 +600,6 @@ require('which-key').add({
   { 'gO', desc = 'Document Symbols' },
   { 'K', desc = 'Hover Docs' },
 })
+
+-- Set terminal scrollback line count
+vim.opt.scrollback = 100000
