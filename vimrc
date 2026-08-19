@@ -12,8 +12,11 @@ set cursorline
 set expandtab
 " Fold based on language syntax
 set foldmethod=syntax
-" Continue comments onto new lines and auto-wrap them at textwidth
+" Continue comments onto new lines and auto-wrap them at textwidth (c/r/o), but
+" do NOT auto-hard-wrap regular text as you type: the default 't' flag mangles
+" long commands and prose. gq still reflows a paragraph at textwidth on demand.
 set formatoptions+=cro
+set formatoptions-=t
 " Remember more command-line and search history
 set history=9999
 " Highlight all search matches
