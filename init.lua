@@ -86,6 +86,28 @@ vim.pack.add({
 })
 
 --------------------------------------------------------------------------------
+-- Terminal wrap-joining yank
+--------------------------------------------------------------------------------
+-- Terminal buffers hard-wrap long output by inserting real line breaks at the
+-- window width, so yanking a wrapped command/URL splits it across lines. In a
+-- :terminal, `Y` in Visual mode yanks the selection and joins it back into one
+-- line (no separator -- matches how the terminal split it); plain `y` stays raw.
+-- Whether a wrap is a real newline or a folded long line is ambiguous once it's
+-- in the buffer, which is why joining is opt-in on `Y` rather than automatic.
+vim.api.nvim_create_autocmd('TermOpen', {
+  group = vim.api.nvim_create_augroup('term-join-yank', { clear = true }),
+  callback = function(args)
+    vim.keymap.set('x', 'Y', function()
+      local reg = vim.v.register
+      vim.cmd('normal! "' .. reg .. 'y')
+      if vim.fn.getregtype(reg):sub(1, 1) == '\22' then return end -- leave blockwise raw
+      local joined = table.concat(vim.fn.getreg(reg, 1, true), ''):gsub('\r', '')
+      vim.fn.setreg(reg, joined, 'v')
+    end, { buffer = args.buf, silent = true, desc = 'Yank + join terminal wraps' })
+  end,
+})
+
+--------------------------------------------------------------------------------
 -- Treesitter navigation (treewalker.nvim)
 --------------------------------------------------------------------------------
 -- Move the cursor through the treesitter tree without selecting (complements
