@@ -89,6 +89,18 @@ The defaults are equivalent to: >lua
 <
 Set default_keymaps to false and copy the above to choose your own keys.
 
+The actions are also exposed as <Plug> mappings, so you can remap them
+without a Lua wrapper -- for example: >vim
+
+	nmap gGt <Plug>(cwdtabs-next-group)
+<
+The available <Plug> mappings are:
+
+	<Plug>(cwdtabs-next-group)	|cwdtabs.next_group()|
+	<Plug>(cwdtabs-prev-group)	|cwdtabs.prev_group()|
+	<Plug>(cwdtabs-last-group)	|cwdtabs.last_group()|
+	<Plug>(cwdtabs-recenter)	|cwdtabs.tcd_to_buffer()|
+
 						*cwdtabs-gGt*
 gGt			Go to the next group, on its first tab.  Wraps
 			around.
