@@ -108,6 +108,25 @@ vim.api.nvim_create_autocmd('TermOpen', {
 })
 
 --------------------------------------------------------------------------------
+-- Grouped tabline by tab-local CWD (cwdtabs)
+--------------------------------------------------------------------------------
+-- Replace the native tabline with one that groups tabs by their effective
+-- tab-local CWD (:tcd), e.g. `robot: main tests │ dotfiles: main`. Structure
+-- is derived from ordinary tab state, not stored -- see lua/cwdtabs.lua.
+-- `:help cwdtabs` documents it; doc/tags is derived (gitignored), so rebuild it
+-- here when absent (e.g. on a fresh checkout).
+do
+  local doc = vim.fn.stdpath('config') .. '/doc'
+  local has_doc = vim.fn.isdirectory(doc) == 1
+  if has_doc and vim.fn.filereadable(doc .. '/tags') == 0 then
+    pcall(vim.cmd.helptags, doc)
+  end
+end
+-- default_keymaps installs the gG* group motions (gGt/gGT/gG<Tab>/gGc); see
+-- |cwdtabs-mappings| for what they do and how to bind your own instead.
+require('cwdtabs').setup({ default_keymaps = true })
+
+--------------------------------------------------------------------------------
 -- Treesitter navigation (treewalker.nvim)
 --------------------------------------------------------------------------------
 -- Move the cursor through the treesitter tree without selecting (complements
@@ -612,6 +631,7 @@ require('which-key').setup({
 -- without creating mappings, so K keeps its default (buffer-local) behavior.
 require('which-key').add({
   { '<Space>g', group = 'git' },
+  { 'gG', group = 'group' },
   { 'gr', group = 'lsp' },
   { 'gra', desc = 'Code Action', mode = { 'n', 'x' } },
   { 'gri', desc = 'Implementations' },

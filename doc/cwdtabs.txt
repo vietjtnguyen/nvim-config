@@ -1,0 +1,176 @@
+*cwdtabs.txt*  Group Neovim tabs by their tab-local working directory
+
+==============================================================================
+CONTENTS					*cwdtabs* *cwdtabs-contents*
+
+1. Introduction ...................... |cwdtabs-introduction|
+2. Setup ............................. |cwdtabs-setup|
+3. The tabline ....................... |cwdtabs-tabline|
+4. Mappings .......................... |cwdtabs-mappings|
+5. Lua API ........................... |cwdtabs-api|
+6. Highlights ........................ |cwdtabs-highlights|
+7. Limitations ....................... |cwdtabs-limitations|
+
+==============================================================================
+1. Introduction						*cwdtabs-introduction*
+
+cwdtabs replaces the tabline with one that groups tabpages by their effective
+tab-local working directory.  See |:tcd|.  Two tabs belong to the same group
+when their directories, after normalization, are equal.  The result reads as a
+row of projects, each holding one or more tabs: >
+
+	robot: 1 main 2 tests │ dotfiles: 3 main
+<
+The grouping is derived, never stored.  There is no project registry: it is
+recomputed from ordinary tab state on every redraw.  A tab created with
+|:tabnew| inherits its parent's directory and joins that group; a |:tcd| moves
+a tab to the matching group.  Removing the plugin leaves plain tabpages and
+their tab-local directories behind.
+
+A tab with no |:tcd| of its own uses the global directory, which is its
+effective directory for grouping.
+
+==============================================================================
+2. Setup						*cwdtabs-setup*
+
+Call |cwdtabs.setup()| once, from your config: >lua
+
+	require('cwdtabs').setup({
+		default_keymaps = true,
+	})
+<
+setup() accepts a table with these options (defaults shown):
+
+						*cwdtabs-default_keymaps*
+default_keymaps
+		Type: boolean.  Default: false.
+		When true, install the default gG* mappings; see
+		|cwdtabs-mappings|.  Leave it false to bind your own keys.
+
+==============================================================================
+3. The tabline						*cwdtabs-tabline*
+
+Each group is shown as its directory's last path component, followed by its
+tabs: >
+
+	<dir>: <n> <name> <n> <name> │ <dir>: <n> <name>
+<
+Each tab shows its number and the active window's buffer name.  The number is
+always shown, so a count with |gt| ("{count}gt") is easy to use.  A terminal
+buffer shows "<n> $<cmd>", where <cmd> is the program it runs, such as "$zsh".
+
+The group holding the current tab, and the current tab itself, are
+highlighted; see |cwdtabs-highlights|.
+
+Groups are ordered by the lowest tab number each contains.  Tabs keep their
+order within a group.
+
+Click a tab to select it.  Click a group label to select that group's first
+tab.
+
+The tabline refreshes when tabs are created, closed or switched, and when any
+directory changes (|:tcd|, |:lcd|, |:cd|).
+
+==============================================================================
+4. Mappings						*cwdtabs-mappings*
+
+The gG* group motions mirror the built-in tab motions one level up, under a
+"gG" ("group") prefix.  Install them with setup{ default_keymaps = true } (see
+|cwdtabs-setup|), or bind your own keys to the |cwdtabs-api| functions.
+
+The defaults are equivalent to: >lua
+
+	local cwdtabs = require('cwdtabs')
+	vim.keymap.set('n', 'gGt', cwdtabs.next_group)
+	vim.keymap.set('n', 'gGT', cwdtabs.prev_group)
+	vim.keymap.set('n', 'gG<Tab>', cwdtabs.last_group)
+	vim.keymap.set('n', 'gGc', cwdtabs.tcd_to_buffer)
+<
+Set default_keymaps to false and copy the above to choose your own keys.
+
+						*cwdtabs-gGt*
+gGt			Go to the next group, on its first tab.  Wraps
+			around.
+
+						*cwdtabs-gGT*
+gGT			Go to the previous group, on its first tab.  Wraps
+			around.
+
+						*cwdtabs-gG<Tab>*
+gG<Tab>			Go to the last-used group.  Mirrors |g<Tab>|.
+
+						*cwdtabs-gGc*
+gGc			Set the tab's directory (|:tcd|) to the current
+			buffer's directory, moving the tab to the
+			matching group.  In a netrw listing the browsed
+			directory is used; for a file, its parent
+			directory.  No effect in a buffer with no
+			directory, such as a terminal or an unnamed
+			buffer.
+
+==============================================================================
+5. Lua API						*cwdtabs-api*
+
+						*cwdtabs.setup()*
+require('cwdtabs').setup({opts})
+			Install the grouped tabline and the autocommands
+			that keep it current.  Call once, from your
+			config.  See |cwdtabs-setup| for {opts}.
+
+						*cwdtabs.next_group()*
+require('cwdtabs').next_group()
+						*cwdtabs.prev_group()*
+require('cwdtabs').prev_group()
+			Move to the next or previous group, on its first
+			tab, wrapping around.  No effect with fewer than
+			two groups.
+
+						*cwdtabs.last_group()*
+require('cwdtabs').last_group()
+			Move to the last-used group.  No effect until you
+			have left a group, or if that group no longer has
+			tabs.
+
+						*cwdtabs.tcd_to_buffer()*
+require('cwdtabs').tcd_to_buffer()
+			Set the tab's directory to the current buffer's
+			directory.  See |cwdtabs-gGc|.
+
+						*cwdtabs.render()*
+require('cwdtabs').render()
+			Return the tabline string.  Used as the 'tabline'
+			expression; you do not call it yourself.
+
+==============================================================================
+6. Highlights						*cwdtabs-highlights*
+
+The plugin defines these groups, linked to built-ins so the colorscheme drives
+the colors.  Override them to restyle the tabline.
+
+CwdTabsGroup					*hl-CwdTabsGroup*
+			A group label.  Linked to |hl-Directory|.
+
+CwdTabsGroupSel					*hl-CwdTabsGroupSel*
+			The label of the group holding the current tab.
+			Linked to |hl-Title|.
+
+CwdTabsFill					*hl-CwdTabsFill*
+			Separators and trailing fill.  Linked to
+			|hl-TabLineFill|.
+
+Tabs use the standard |hl-TabLine| and |hl-TabLineSel| (current tab) groups.
+
+==============================================================================
+7. Limitations						*cwdtabs-limitations*
+
+The tabline is a single physical line.  When it is wider than the screen
+Neovim truncates it; there is no horizontal scrolling.
+
+Directories are normalized with |vim.fs.normalize()|, but symlinks are not
+resolved.  Two tabs reaching one directory by different symlink paths form
+separate groups.
+
+Group labels are path basenames, so two directories whose last component is
+the same, such as ~/a/src and ~/b/src, both appear as "src".
+
+vim:tw=78:ts=8:noet:ft=help:norl:
