@@ -169,6 +169,15 @@ require('cwdtabs').tcd_to_buffer()
 			Set the tab's directory to the current buffer's
 			directory.  See |cwdtabs-gGc|.
 
+						*cwdtabs.groups()*
+require('cwdtabs').groups()
+			Return the current CWD groups, in display order, as
+			plain data for building UIs (pickers, statuslines).
+			Each group has: cwd (normalized directory), label
+			(the tabline basename), has_current (holds the
+			current tab?), and tabs, a list in tab order of
+			{ nr, id, is_current, label }.
+
 						*cwdtabs.render()*
 require('cwdtabs').render()
 			Return the tabline string.  Used as the 'tabline'

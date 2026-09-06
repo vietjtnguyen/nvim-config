@@ -266,6 +266,14 @@ vim.keymap.set({ 'n', 'v', 'o' }, '<Space>m', function()
   })
 end, { desc = 'Workspace Symbols: Functions/Methods' })
 
+-- <Space>G picks any tab (shown as "group › tab"). The group-only picker,
+-- require('cwdtabs_pickers').pick_groups(), is available to bind too. Both
+-- are a Telescope view of require('cwdtabs').groups(); see
+-- lua/cwdtabs_pickers.lua.
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>G', function()
+  require('cwdtabs_pickers').pick_tabs()
+end, { desc = 'Pick Tab' })
+
 --------------------------------------------------------------------------------
 -- Colorschemes
 --------------------------------------------------------------------------------
