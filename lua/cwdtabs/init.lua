@@ -84,7 +84,9 @@ end
 
 -- Public: the current CWD groups in display order, as plain data for building
 -- UIs (pickers, statuslines) without reaching into internals. Each group is
--- { cwd, label, has_current, tabs = { { nr, id, is_current, label }, ... } }.
+-- { cwd, label, has_current, tabs = {...} }, and each tab is
+-- { nr, id, is_current, label, bufnr, path } -- bufnr/path being the tab's
+-- active window's buffer and its full name.
 function M.groups()
   local groups = build_groups()
   for _, g in ipairs(groups) do
@@ -92,6 +94,8 @@ function M.groups()
     for _, t in ipairs(g.tabs) do
       local ok, label = pcall(tab_label, t.id, t.nr)
       t.label = (ok and type(label) == 'string') and label or tostring(t.nr)
+      t.bufnr = vim.api.nvim_win_get_buf(vim.api.nvim_tabpage_get_win(t.id))
+      t.path = vim.api.nvim_buf_get_name(t.bufnr)
     end
   end
   return groups

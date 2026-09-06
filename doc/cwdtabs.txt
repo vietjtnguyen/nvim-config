@@ -176,7 +176,7 @@ require('cwdtabs').groups()
 			Each group has: cwd (normalized directory), label
 			(the tabline basename), has_current (holds the
 			current tab?), and tabs, a list in tab order of
-			{ nr, id, is_current, label }.
+			{ nr, id, is_current, label, bufnr, path }.
 
 						*cwdtabs.render()*
 require('cwdtabs').render()
