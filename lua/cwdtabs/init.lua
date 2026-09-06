@@ -82,6 +82,21 @@ local function build_groups()
   return order
 end
 
+-- Public: the current CWD groups in display order, as plain data for building
+-- UIs (pickers, statuslines) without reaching into internals. Each group is
+-- { cwd, label, has_current, tabs = { { nr, id, is_current, label }, ... } }.
+function M.groups()
+  local groups = build_groups()
+  for _, g in ipairs(groups) do
+    g.label = group_label(g.cwd)
+    for _, t in ipairs(g.tabs) do
+      local ok, label = pcall(tab_label, t.id, t.nr)
+      t.label = (ok and type(label) == 'string') and label or tostring(t.nr)
+    end
+  end
+  return groups
+end
+
 --------------------------------------------------------------------------------
 -- Rendering
 --------------------------------------------------------------------------------
