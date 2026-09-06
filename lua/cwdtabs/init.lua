@@ -162,10 +162,45 @@ end
 -- Navigation
 --------------------------------------------------------------------------------
 
+-- Transient navigation history. focus holds the current and previous group
+-- CWDs (for gG<Tab>); last_tab remembers each group's last-active tab so that
+-- entering a group returns to where you were, not its first tab. Both live in
+-- memory only -- group membership itself stays a pure function of each tab's
+-- CWD.
+local focus = { current = nil, prev = nil }
+local last_tab = {} -- cwd -> last-active tabpage id
+
+-- Record the current tab as its group's last-active tab, and note any group
+-- change for gG<Tab>. Called whenever focus settles on a tab.
+local function track_focus()
+  local id = vim.api.nvim_get_current_tabpage()
+  local cwd = tab_cwd(vim.api.nvim_tabpage_get_number(id))
+  last_tab[cwd] = id
+  if cwd ~= focus.current then
+    focus.prev = focus.current
+    focus.current = cwd
+  end
+end
+
+-- The tab to land on when entering the group at `cwd`: its last-active tab if
+-- that tab still exists and still belongs to the group, else the group's first
+-- tab in tab order. nil if the group has no tabs.
+local function group_target_tab(cwd)
+  local mru = last_tab[cwd]
+  if mru and vim.api.nvim_tabpage_is_valid(mru)
+      and tab_cwd(vim.api.nvim_tabpage_get_number(mru)) == cwd then
+    return mru
+  end
+  for _, id in ipairs(vim.api.nvim_list_tabpages()) do
+    if tab_cwd(vim.api.nvim_tabpage_get_number(id)) == cwd then
+      return id
+    end
+  end
+end
+
 -- Jump to the group `delta` positions from the current tab's group (wrapping
--- around), landing on that group's first tab. Analogous to gt/gT but one level
--- up. No-op with fewer than two groups. (A future refinement could land on the
--- group's most-recently-used tab instead of its first.)
+-- around), landing on its last-active tab. Analogous to gt/gT one level up.
+-- No-op with fewer than two groups.
 local function goto_group(delta)
   local groups = build_groups()
   if #groups < 2 then return end
@@ -177,37 +212,19 @@ local function goto_group(delta)
   if not cur_idx then return end
 
   local target = (cur_idx - 1 + delta) % #groups + 1
-  vim.api.nvim_set_current_tabpage(groups[target].tabs[1].id)
+  local id = group_target_tab(groups[target].cwd)
+  if id then vim.api.nvim_set_current_tabpage(id) end
 end
 
 function M.next_group() goto_group(1) end
 function M.prev_group() goto_group(-1) end
 
--- Track the previously-focused group's CWD so gG<Tab> can toggle back to it,
--- mirroring g<Tab> for tabs. Minimal transient state: just the current and
--- prior group CWDs, updated when focus lands on a different group (a tab
--- switch, or a :tcd that moves the current tab). Nothing persisted.
-local focus = { current = nil, prev = nil }
-
-local function track_focus()
-  local cwd = tab_cwd(vim.fn.tabpagenr())
-  if cwd ~= focus.current then
-    focus.prev = focus.current
-    focus.current = cwd
-  end
-end
-
--- Jump to the most recently focused *other* group (its first tab). No-op if we
--- haven't left a group yet, or that group no longer has any tabs.
+-- Return to the previous group's last-active tab, mirroring g<Tab> for tabs.
+-- No-op until you have left a group, or if that group no longer has tabs.
 function M.last_group()
-  local target = focus.prev
-  if not target then return end
-  for _, tab_id in ipairs(vim.api.nvim_list_tabpages()) do
-    if tab_cwd(vim.api.nvim_tabpage_get_number(tab_id)) == target then
-      vim.api.nvim_set_current_tabpage(tab_id)
-      return
-    end
-  end
+  if not focus.prev then return end
+  local id = group_target_tab(focus.prev)
+  if id then vim.api.nvim_set_current_tabpage(id) end
 end
 
 -- :tcd the current tab to the directory of the current buffer, to "recenter"
@@ -314,7 +331,7 @@ function M.setup(opts)
   opts = vim.tbl_extend('force', defaults, opts or {})
 
   set_highlights()
-  focus.current = tab_cwd(vim.fn.tabpagenr())
+  track_focus() -- seed focus + last_tab for the startup tab
 
   local group = vim.api.nvim_create_augroup('cwdtabs', { clear = true })
   vim.api.nvim_create_autocmd('ColorScheme',
