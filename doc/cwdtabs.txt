@@ -7,9 +7,10 @@ CONTENTS					*cwdtabs* *cwdtabs-contents*
 2. Setup ............................. |cwdtabs-setup|
 3. The tabline ....................... |cwdtabs-tabline|
 4. Mappings .......................... |cwdtabs-mappings|
-5. Lua API ........................... |cwdtabs-api|
-6. Highlights ........................ |cwdtabs-highlights|
-7. Limitations ....................... |cwdtabs-limitations|
+5. Commands .......................... |cwdtabs-commands|
+6. Lua API ........................... |cwdtabs-api|
+7. Highlights ........................ |cwdtabs-highlights|
+8. Limitations ....................... |cwdtabs-limitations|
 
 ==============================================================================
 1. Introduction						*cwdtabs-introduction*
@@ -109,7 +110,27 @@ gGc			Set the tab's directory (|:tcd|) to the current
 			buffer.
 
 ==============================================================================
-5. Lua API						*cwdtabs-api*
+5. Commands						*cwdtabs-commands*
+
+setup() also defines these commands, thin wrappers over |cwdtabs-api|:
+
+						*:CwdTabsNext*
+:CwdTabsNext		Go to the next group.  See |cwdtabs.next_group()|.
+
+						*:CwdTabsPrev*
+:CwdTabsPrev		Go to the previous group.  See
+			|cwdtabs.prev_group()|.
+
+						*:CwdTabsLast*
+:CwdTabsLast		Go to the last-used group.  See
+			|cwdtabs.last_group()|.
+
+						*:CwdTabsRecenter*
+:CwdTabsRecenter	Set the tab's directory to the current buffer's
+			directory.  See |cwdtabs.tcd_to_buffer()|.
+
+==============================================================================
+6. Lua API						*cwdtabs-api*
 
 						*cwdtabs.setup()*
 require('cwdtabs').setup({opts})
@@ -142,7 +163,7 @@ require('cwdtabs').render()
 			expression; you do not call it yourself.
 
 ==============================================================================
-6. Highlights						*cwdtabs-highlights*
+7. Highlights						*cwdtabs-highlights*
 
 The plugin defines these groups, linked to built-ins so the colorscheme drives
 the colors.  Override them to restyle the tabline.
@@ -161,7 +182,7 @@ CwdTabsFill					*hl-CwdTabsFill*
 Tabs use the standard |hl-TabLine| and |hl-TabLineSel| (current tab) groups.
 
 ==============================================================================
-7. Limitations						*cwdtabs-limitations*
+8. Limitations						*cwdtabs-limitations*
 
 The tabline is a single physical line.  When it is wider than the screen
 Neovim truncates it; there is no horizontal scrolling.
