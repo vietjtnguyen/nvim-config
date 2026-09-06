@@ -79,6 +79,9 @@ The gG* group motions mirror the built-in tab motions one level up, under a
 "gG" ("group") prefix.  Install them with setup{ default_keymaps = true } (see
 |cwdtabs-setup|), or bind your own keys to the |cwdtabs-api| functions.
 
+Entering a group returns to its last-active tab -- the tab you were last on
+there -- or its first tab if that tab is gone.
+
 The defaults are equivalent to: >lua
 
 	local cwdtabs = require('cwdtabs')
@@ -102,12 +105,10 @@ The available <Plug> mappings are:
 	<Plug>(cwdtabs-recenter)	|cwdtabs.tcd_to_buffer()|
 
 						*cwdtabs-gGt*
-gGt			Go to the next group, on its first tab.  Wraps
-			around.
+gGt			Go to the next group.  Wraps around.
 
 						*cwdtabs-gGT*
-gGT			Go to the previous group, on its first tab.  Wraps
-			around.
+gGT			Go to the previous group.  Wraps around.
 
 						*cwdtabs-gG<Tab>*
 gG<Tab>			Go to the last-used group.  Mirrors |g<Tab>|.
@@ -154,9 +155,8 @@ require('cwdtabs').setup({opts})
 require('cwdtabs').next_group()
 						*cwdtabs.prev_group()*
 require('cwdtabs').prev_group()
-			Move to the next or previous group, on its first
-			tab, wrapping around.  No effect with fewer than
-			two groups.
+			Move to the next or previous group, wrapping
+			around.  No effect with fewer than two groups.
 
 						*cwdtabs.last_group()*
 require('cwdtabs').last_group()
