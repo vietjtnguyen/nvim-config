@@ -251,15 +251,34 @@ local function redraw_tabline()
   end
 end
 
--- The mappings installed by setup{ default_keymaps = true }. Kept in one place
--- so cwdtabs-mappings in the help can show the exact equivalent for users who
--- prefer to bind their own keys.
+-- <Plug> mappings, created by setup(): the remappable layer for each action.
+-- Inert until mapped, so users can bind their own keys without wrapping a Lua
+-- function (see cwdtabs-mappings). The default gG* mappings go through these.
+local function set_plug_mappings()
+  local map = vim.keymap.set
+  map('n', '<Plug>(cwdtabs-next-group)', M.next_group,
+    { desc = 'cwdtabs: next tab group' })
+  map('n', '<Plug>(cwdtabs-prev-group)', M.prev_group,
+    { desc = 'cwdtabs: previous tab group' })
+  map('n', '<Plug>(cwdtabs-last-group)', M.last_group,
+    { desc = 'cwdtabs: last-used tab group' })
+  map('n', '<Plug>(cwdtabs-recenter)', M.tcd_to_buffer,
+    { desc = 'cwdtabs: recenter tab on buffer dir' })
+end
+
+-- The mappings installed by setup{ default_keymaps = true }, wiring the gG*
+-- "group" prefix to the <Plug> mappings above. remap = true so the <Plug> rhs
+-- expands.
 local function set_default_keymaps()
   local map = vim.keymap.set
-  map('n', 'gGt', M.next_group, { desc = 'Next tab group (CWD)' })
-  map('n', 'gGT', M.prev_group, { desc = 'Prev tab group (CWD)' })
-  map('n', 'gG<Tab>', M.last_group, { desc = 'Last-used tab group (CWD)' })
-  map('n', 'gGc', M.tcd_to_buffer, { desc = 'tcd tab to buffer dir' })
+  map('n', 'gGt', '<Plug>(cwdtabs-next-group)',
+    { remap = true, desc = 'Next tab group (CWD)' })
+  map('n', 'gGT', '<Plug>(cwdtabs-prev-group)',
+    { remap = true, desc = 'Prev tab group (CWD)' })
+  map('n', 'gG<Tab>', '<Plug>(cwdtabs-last-group)',
+    { remap = true, desc = 'Last-used tab group (CWD)' })
+  map('n', 'gGc', '<Plug>(cwdtabs-recenter)',
+    { remap = true, desc = 'tcd tab to buffer dir' })
 end
 
 -- User commands, created by setup(): thin wrappers over the public functions.
@@ -305,6 +324,7 @@ function M.setup(opts)
   vim.o.showtabline = 2
   vim.o.tabline = '%!v:lua.require("cwdtabs").render()'
 
+  set_plug_mappings()
   set_commands()
   if opts.default_keymaps then
     set_default_keymaps()
