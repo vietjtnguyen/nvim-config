@@ -262,6 +262,16 @@ local function set_default_keymaps()
   map('n', 'gGc', M.tcd_to_buffer, { desc = 'tcd tab to buffer dir' })
 end
 
+-- User commands, created by setup(): thin wrappers over the public functions.
+local function set_commands()
+  local cmd = vim.api.nvim_create_user_command
+  cmd('CwdTabsNext', M.next_group, { desc = 'cwdtabs: next tab group' })
+  cmd('CwdTabsPrev', M.prev_group, { desc = 'cwdtabs: previous tab group' })
+  cmd('CwdTabsLast', M.last_group, { desc = 'cwdtabs: last-used tab group' })
+  cmd('CwdTabsRecenter', M.tcd_to_buffer,
+    { desc = 'cwdtabs: recenter tab on buffer dir' })
+end
+
 local defaults = {
   default_keymaps = false, -- install the gG* mappings
 }
@@ -295,6 +305,7 @@ function M.setup(opts)
   vim.o.showtabline = 2
   vim.o.tabline = '%!v:lua.require("cwdtabs").render()'
 
+  set_commands()
   if opts.default_keymaps then
     set_default_keymaps()
   end
