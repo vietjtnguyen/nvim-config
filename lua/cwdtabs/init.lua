@@ -271,16 +271,12 @@ local function set_highlights()
   vim.api.nvim_set_hl(0, 'CwdTabsFill', { link = 'TabLineFill' })
 end
 
--- Repaint the tabline now. A programmatic same-tab :tcd triggers no natural
--- screen redraw, and :redrawtabline only marks the tabline dirty without
--- flushing, so prefer nvim__redraw with flush; fall back to :redrawtabline if
--- that (private) API is ever unavailable.
+-- Force the tabline to re-evaluate its 'tabline' expression. A same-tab :tcd
+-- from a normal-mode mapping (gGc) changes no visible buffer content, so it
+-- triggers no repaint on its own; :redrawtabline is the public nudge. The
+-- caller schedules it to run after the triggering command finishes.
 local function redraw_tabline()
-  if vim.api.nvim__redraw then
-    vim.api.nvim__redraw({ tabline = true, flush = true })
-  else
-    vim.cmd('redrawtabline')
-  end
+  vim.cmd('redrawtabline')
 end
 
 -- <Plug> mappings, created by setup(): the remappable layer for each action.
