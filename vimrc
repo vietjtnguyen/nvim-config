@@ -90,9 +90,13 @@ let mapleader=","
 " Clear search highlights
 nmap <silent> <Leader>/ :nohlsearch<CR>
 
-" Create an easier mapping for getting out of terminal mode
-" https://vi.stackexchange.com/a/6966
-tnoremap <Leader>. <C-\><C-n>
+" Universal 'escape to Normal mode' from any mode (Ctrl+/ sends <C-_>). One
+" chord everywhere -- insert, visual, terminal, command-line -- so there's no
+" need to be mode-aware. Unlike <Esc>, it stays distinct from a real Esc in the
+" terminal, and unlike a leader chord it has no insert-mode timeout.
+noremap  <C-_> <C-\><C-n>
+noremap! <C-_> <C-\><C-n>
+tnoremap <C-_> <C-\><C-n>
 
 " Quickly create a new terminal in a new tab
 tnoremap <Leader>c <C-\><C-n>:tab new<CR>:term<CR>
