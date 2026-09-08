@@ -231,19 +231,65 @@ function M.last_group()
   if id then vim.api.nvim_set_current_tabpage(id) end
 end
 
+-- Most-recently-spawned child of `pid` (Linux /proc), or nil. Mirrors how the
+-- process-chain walk picks the "active" descendant at each step.
+local function proc_last_child(pid)
+  local f = io.open('/proc/' .. pid .. '/task/' .. pid .. '/children', 'r')
+  if not f then return nil end
+  local data = f:read('*a') or ''
+  f:close()
+  local last
+  for c in data:gmatch('%d+') do last = c end
+  return last and tonumber(last) or nil
+end
+
+-- Live working directory of the shell running in a terminal buffer, for gGc on
+-- a terminal. terminal_job_pid is the shell Neovim spawned; its /proc/<pid>/cwd
+-- symlink tracks every cd/z, unlike the term:// URL, whose cwd is only where
+-- the shell STARTED. We follow the chain to the leaf (a nested shell -- bash in
+-- zsh -- is where you're actually navigating), then take the DEEPEST process
+-- whose cwd is a directory on THIS host: a containerized leaf (zsh -> docker ->
+-- bash) has a cwd in the container's namespace that isn't a real host path, so
+-- it's skipped in favor of a host cwd higher up. Linux-only; nil elsewhere or
+-- when nothing resolves, so the caller falls back to its no-directory handling.
+local function terminal_cwd(bufnr)
+  local pid = vim.b[bufnr] and vim.b[bufnr].terminal_job_pid
+  if not pid then return nil end
+  local chain = { pid }
+  for _ = 1, 15 do
+    local kid = proc_last_child(chain[#chain])
+    if not kid then break end
+    chain[#chain + 1] = kid
+  end
+  for i = #chain, 1, -1 do
+    local dir = vim.uv.fs_readlink('/proc/' .. chain[i] .. '/cwd')
+    if dir and vim.fn.isdirectory(dir) == 1 then return dir end
+  end
+  return nil
+end
+
 -- :tcd the current tab to the directory of the current buffer, to "recenter"
--- the tab's project context where you are. A netrw/vim-vinegar listing uses
--- the browsed directory (b:netrw_curdir); a file uses its parent directory.
--- No-op (with a message) for buffers with no directory (terminals, [No Name]).
--- The DirChanged autocmd then regroups and redraws the tabline automatically.
+-- the tab's project context where you are. A terminal uses the live CWD of the
+-- shell running in it (see terminal_cwd); a netrw/vim-vinegar listing uses the
+-- browsed directory (b:netrw_curdir); a file uses its parent directory. No-op
+-- (with a message) for buffers with no resolvable directory ([No Name], or a
+-- terminal whose CWD can't be read). The DirChanged autocmd then regroups and
+-- redraws the tabline automatically.
 function M.tcd_to_buffer()
   local dir
+  local netrw = vim.b.netrw_curdir
+  if vim.bo.buftype == 'terminal' then
+    dir = terminal_cwd(vim.api.nvim_get_current_buf())
+    if not dir then
+      vim.notify("cwdtabs: can't read the terminal's directory",
+        vim.log.levels.WARN)
+      return
+    end
   -- Use the browsed directory only in a real netrw listing. b:netrw_curdir
   -- lingers on ordinary file buffers reached *through* netrw (still pointing
   -- at the last-browsed dir), so trusting it unconditionally would cd to the
   -- wrong place -- gate it on filetype == 'netrw'.
-  local netrw = vim.b.netrw_curdir
-  if vim.bo.filetype == 'netrw' and netrw and netrw ~= '' then
+  elseif vim.bo.filetype == 'netrw' and netrw and netrw ~= '' then
     dir = netrw
   else
     local name = vim.api.nvim_buf_get_name(0)
