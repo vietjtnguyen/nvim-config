@@ -116,11 +116,13 @@ gG<Tab>			Go to the last-used group.  Mirrors |g<Tab>|.
 						*cwdtabs-gGc*
 gGc			Set the tab's directory (|:tcd|) to the current
 			buffer's directory, moving the tab to the
-			matching group.  In a netrw listing the browsed
-			directory is used; for a file, its parent
-			directory.  No effect in a buffer with no
-			directory, such as a terminal or an unnamed
-			buffer.
+			matching group.  In a terminal, the live working
+			directory of the shell running in it is used
+			(tracking cd/z; read from /proc, Linux only); in
+			a netrw listing, the browsed directory; for a
+			file, its parent directory.  No effect in an
+			unnamed buffer, or when the terminal's directory
+			can't be read.
 
 ==============================================================================
 5. Commands						*cwdtabs-commands*
