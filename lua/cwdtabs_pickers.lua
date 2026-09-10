@@ -8,7 +8,6 @@ local finders = require('telescope.finders')
 local conf = require('telescope.config').values
 local actions = require('telescope.actions')
 local action_state = require('telescope.actions.state')
-local entry_display = require('telescope.pickers.entry_display')
 local previewers = require('telescope.previewers')
 local putils = require('telescope.previewers.utils')
 
@@ -51,9 +50,44 @@ local function term_chain(bufnr)
   return table.concat(names, ' → ')
 end
 
+-- Size a picker to its entry count. Telescope computes layout once at open
+-- (and on resize), not per-keystroke, so this fits the *initial* number of
+-- tabs -- a handful of tabs opens a compact list, not a half-empty half-screen
+-- -- but it does not shrink further as you filter. With a previewer we stack
+-- vertically (results above, preview below) so both get the full window width;
+-- the ~6 lines of slack absorb the prompt and window borders (tune to taste).
+local function layout_for(entries, previewer)
+  local n = #entries
+  if previewer then
+    local preview_h = 18
+    return {
+      layout_strategy = 'vertical',
+      layout_config = {
+        mirror = true,             -- results on top, preview below
+        prompt_position = 'top',
+        width = 0.8,
+        height = function(_, _, max_lines)
+          return math.min(max_lines - 2, n + preview_h + 6)
+        end,
+        preview_height = function(_, _, max_lines)
+          return math.min(preview_h, math.max(6, max_lines - n - 8))
+        end,
+      },
+    }
+  end
+  return {
+    layout_config = {
+      height = function(_, _, max_lines)
+        return math.min(max_lines - 2, n + 6)
+      end,
+    },
+  }
+end
+
 -- Run a picker whose entries each carry a `.tab` id to switch to on <CR>.
 local function run(title, entries, previewer, opts)
-  opts = opts or {}
+  opts = vim.tbl_deep_extend(
+    'force', layout_for(entries, previewer), opts or {})
   pickers.new(opts, {
     prompt_title = title,
     finder = finders.new_table({
@@ -76,10 +110,15 @@ local function run(title, entries, previewer, opts)
 end
 
 -- Preview a tab by dumping its active buffer's contents (works for files,
--- terminals, and any other loaded buffer).
+-- terminals, and any other loaded buffer). dyn_title puts the selected tab's
+-- full path (terminals: their process chain / term:// URL) in the preview
+-- border, complementing the shortened "./..." location shown inline in the
+-- list. Requires dynamic_preview_title = true in the Telescope setup.
 local function tab_previewer()
   return previewers.new_buffer_previewer({
-    title = 'Tab preview',
+    dyn_title = function(_, entry)
+      return entry.value.title or 'Tab preview'
+    end,
     define_preview = function(self, entry)
       local buf = entry.value.bufnr
       local pbuf = self.state.bufnr
@@ -95,14 +134,26 @@ local function tab_previewer()
   })
 end
 
--- Pick any tab across all groups. The current tab is marked '●'; the buffer's
--- ~-path is shown and, with the group name and CWD, is fuzzy-searchable. A
--- preview pane shows the tab's active buffer.
+-- Locate a file relative to its tab's CWD group, for the dimmed suffix in the
+-- list. "./sub/dir/file.c" when it's inside the group (the common case, kept
+-- short); the full ~ path when it lives elsewhere; empty for a buffer with no
+-- file (a terminal). g.cwd is already normalized; normalize the buffer path too
+-- so the prefix test is apples-to-apples.
+local function locate(cwd, file)
+  if not file then return '' end
+  local nfile = vim.fs.normalize(file)
+  local prefix = cwd:gsub('/*$', '') .. '/'
+  if nfile:sub(1, #prefix) == prefix then
+    return './' .. nfile:sub(#prefix + 1)
+  end
+  return vim.fn.fnamemodify(nfile, ':~')
+end
+
+-- Pick any tab across all groups. The current tab is marked '●'. Each line is
+-- "group › <tab>" (never clipped) followed by the buffer's location, dimmed --
+-- see locate(). The full path is also in the ordinal, so a fuzzy query matches
+-- on it even where the line shows only the short "./..." form.
 function M.pick_tabs(opts)
-  local displayer = entry_display.create({
-    separator = ' ',
-    items = { { width = 1 }, { width = 30 }, { remaining = true } },
-  })
   local entries = {}
   for _, g in ipairs(cwdtabs.groups()) do
     for _, t in ipairs(g.tabs) do
@@ -111,19 +162,29 @@ function M.pick_tabs(opts)
       -- For terminals, show the running process chain (zsh -> claude) instead
       -- of the bare shell; falls back to the tabline label if unavailable.
       local label = t.label
+      local chain
       if is_term then
-        local chain = term_chain(t.bufnr)
+        chain = term_chain(t.bufnr)
         if chain then label = t.nr .. ' ' .. chain end
       end
-      local head = string.format('%s › %s', g.label, label)
       local mark = t.is_current and '●' or ' '
-      local path = file and vim.fn.fnamemodify(file, ':~') or ''
+      local head = string.format('%s %s › %s', mark, g.label, label)
+      local loc = locate(g.cwd, file)
+      -- Preview border title: the file's full ~ path, else a terminal's process
+      -- chain or its term:// URL (see tab_previewer's dyn_title).
+      local title = file and vim.fn.fnamemodify(file, ':~') or chain or t.path
       entries[#entries + 1] = {
         tab = t.id,
         bufnr = t.bufnr,
+        title = title,
         ordinal = table.concat({ g.label, g.cwd, label, file or '' }, ' '),
+        -- Return (line, highlights): dim only the appended "(location)" so the
+        -- tab info stays at full contrast. Ranges are 0-indexed byte columns;
+        -- #head is the byte length of the head, i.e. where the suffix starts.
         display = function()
-          return displayer({ mark, head, { path, 'Comment' } })
+          if loc == '' then return head end
+          local line = head .. '  (' .. loc .. ')'
+          return line, { { { #head, #line }, 'Comment' } }
         end,
       }
     end

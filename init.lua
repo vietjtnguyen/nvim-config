@@ -200,7 +200,12 @@ end
 -- Telescope (fuzzy finder)
 --------------------------------------------------------------------------------
 -- Telescope: fuzzy finder / picker over files, buffers, git, LSP, etc.
-require('telescope').setup({})
+-- dynamic_preview_title lets a previewer set the preview border title per
+-- entry (via dyn_title); cwdtabs' tab picker uses it to show the selected
+-- tab's full path. Off by default in Telescope.
+require('telescope').setup({
+  defaults = { dynamic_preview_title = true },
+})
 
 -- telescope-fzf-native has no vim.pack build hook (unlike lazy.nvim's `build =
 -- 'make'`), so compile it here if the .so isn't there yet.
