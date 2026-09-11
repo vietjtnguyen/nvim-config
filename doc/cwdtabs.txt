@@ -69,6 +69,16 @@ order within a group.
 Click a tab to select it.  Click a group label to select that group's first
 tab.
 
+A group can be folded (see |cwdtabs-gGz|) to save space: its tabs collapse to
+a "[+N]" count after the group name.  The current tab is never hidden, so a
+folded group you are in shows that one tab followed by "[+N]" for the rest,
+while a folded group you are not in shows just its name and count: >
+
+	dotfiles: [+3] │ nvim: 6 README [+2]
+<
+The count clicks through to the group's first tab.  Folding is a view state
+only; it does not change grouping, and it is not remembered across sessions.
+
 The tabline refreshes when tabs are created, closed or switched, and when any
 directory changes (|:tcd|, |:lcd|, |:cd|).
 
@@ -89,6 +99,7 @@ The defaults are equivalent to: >lua
 	vim.keymap.set('n', 'gGT', cwdtabs.prev_group)
 	vim.keymap.set('n', 'gG<Tab>', cwdtabs.last_group)
 	vim.keymap.set('n', 'gGc', cwdtabs.tcd_to_buffer)
+	vim.keymap.set('n', 'gGz', cwdtabs.toggle_collapse)
 <
 Set default_keymaps to false and copy the above to choose your own keys.
 
@@ -103,6 +114,7 @@ The available <Plug> mappings are:
 	<Plug>(cwdtabs-prev-group)	|cwdtabs.prev_group()|
 	<Plug>(cwdtabs-last-group)	|cwdtabs.last_group()|
 	<Plug>(cwdtabs-recenter)	|cwdtabs.tcd_to_buffer()|
+	<Plug>(cwdtabs-toggle-collapse)	|cwdtabs.toggle_collapse()|
 
 						*cwdtabs-gGt*
 gGt			Go to the next group.  Wraps around.
@@ -124,6 +136,15 @@ gGc			Set the tab's directory (|:tcd|) to the current
 			unnamed buffer, or when the terminal's directory
 			can't be read.
 
+						*cwdtabs-gGz*
+gGz			Fold or unfold a tab group, hiding its tabs behind
+			a "[+N]" count to save tabline space (the current
+			tab stays visible; see |cwdtabs-tabline|).  With
+			no count it acts on the current tab's group; with
+			a count, "{count}gGz" acts on the group that tab
+			{count} belongs to -- a way to name a group, which
+			has no number of its own, by one of its tabs.
+
 ==============================================================================
 5. Commands						*cwdtabs-commands*
 
@@ -143,6 +164,11 @@ setup() also defines these commands, thin wrappers over |cwdtabs-api|:
 						*:CwdTabsRecenter*
 :CwdTabsRecenter	Set the tab's directory to the current buffer's
 			directory.  See |cwdtabs.tcd_to_buffer()|.
+
+						*:CwdTabsToggleCollapse*
+:[count]CwdTabsToggleCollapse
+			Fold or unfold a tab group.  A [count] names the
+			group by one of its tabs, as with |cwdtabs-gGz|.
 
 ==============================================================================
 6. Lua API						*cwdtabs-api*
@@ -170,6 +196,15 @@ require('cwdtabs').last_group()
 require('cwdtabs').tcd_to_buffer()
 			Set the tab's directory to the current buffer's
 			directory.  See |cwdtabs-gGc|.
+
+						*cwdtabs.toggle_collapse()*
+require('cwdtabs').toggle_collapse([{count}])
+			Fold or unfold a tab group; folded, its tabs
+			collapse to a "[+N]" count (see |cwdtabs-tabline|).
+			{count} selects the group containing that tab
+			number; omitted or 0 means the current tab's group.
+			With no argument it reads |v:count|, so it works
+			directly as a mapping (see |cwdtabs-gGz|).
 
 						*cwdtabs.groups()*
 require('cwdtabs').groups()
@@ -201,6 +236,10 @@ CwdTabsGroupSel					*hl-CwdTabsGroupSel*
 CwdTabsFill					*hl-CwdTabsFill*
 			Separators and trailing fill.  Linked to
 			|hl-TabLineFill|.
+
+CwdTabsCount					*hl-CwdTabsCount*
+			A folded group's "[+N]" count.  Linked to
+			|hl-TabLine|.
 
 Tabs use the standard |hl-TabLine| and |hl-TabLineSel| (current tab) groups.
 

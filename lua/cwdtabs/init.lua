@@ -122,6 +122,42 @@ local function esc(s) return (s:gsub('%%', '%%%%')) end
 
 local SEP = ' │ ' -- between groups
 
+-- Per-group fold state for the tabline: collapsed[cwd] = true folds a group's
+-- tabs behind a "[+N]" count (see M.render / M.toggle_collapse). This is view
+-- state only -- the derived group membership is untouched -- and it never
+-- persists; prune_collapsed() drops it for groups that cease to exist.
+local collapsed = {}
+
+-- One tab rendered as a clickable, highlighted tabline cell.
+local function tab_cell(tab)
+  local label = select(2, pcall(tab_label, tab.id, tab.nr))
+  if type(label) ~= 'string' then label = tostring(tab.nr) end
+  return '%' .. tab.nr .. 'T'
+    .. hl(tab.is_current and 'TabLineSel' or 'TabLine')
+    .. ' ' .. esc(label) .. ' '
+    .. '%T'
+end
+
+-- Force the tabline to re-evaluate its 'tabline' expression. A mapping that
+-- changes only cwdtabs' own state -- a same-tab :tcd (gGc) or a fold toggle
+-- (gGz) -- alters no buffer content, so nothing repaints on its own;
+-- :redrawtabline is the public nudge. Callers may schedule it to run after the
+-- triggering command finishes.
+local function redraw_tabline()
+  vim.cmd('redrawtabline')
+end
+
+-- Drop fold state for groups that no longer exist, so a CWD whose tabs all
+-- closed doesn't come back pre-folded the next time it's opened.
+local function prune_collapsed()
+  if next(collapsed) == nil then return end
+  local live = {}
+  for _, g in ipairs(build_groups()) do live[g.cwd] = true end
+  for cwd in pairs(collapsed) do
+    if not live[cwd] then collapsed[cwd] = nil end
+  end
+end
+
 function M.render()
   local ok, out = pcall(function()
     local parts = {}
@@ -134,19 +170,31 @@ function M.render()
 
       -- Group label, clickable: selects the group's first tab (native %nT
       -- click target). The current tab's group is highlighted distinctly.
-      parts[#parts + 1] = '%' .. group.tabs[1].nr .. 'T'
+      local first = group.tabs[1].nr
+      parts[#parts + 1] = '%' .. first .. 'T'
         .. hl(group.has_current and 'CwdTabsGroupSel' or 'CwdTabsGroup')
         .. ' ' .. esc(group_label(group.cwd)) .. ':'
         .. '%T'
 
-      -- Tabs in this group, each a native click target selecting that tab.
-      for _, tab in ipairs(group.tabs) do
-        local label = select(2, pcall(tab_label, tab.id, tab.nr))
-        if type(label) ~= 'string' then label = tostring(tab.nr) end
-        parts[#parts + 1] = '%' .. tab.nr .. 'T'
-          .. hl(tab.is_current and 'TabLineSel' or 'TabLine')
-          .. ' ' .. esc(label) .. ' '
-          .. '%T'
+      if collapsed[group.cwd] then
+        -- Folded: keep the current tab visible (never hide where you are) and
+        -- fold the rest into a "[+N]" count; a group you're not in folds to
+        -- just its name and count. The count clicks through to the first tab.
+        local shown
+        for _, tab in ipairs(group.tabs) do
+          if tab.is_current then shown = tab break end
+        end
+        if shown then parts[#parts + 1] = tab_cell(shown) end
+        local hidden = #group.tabs - (shown and 1 or 0)
+        if hidden > 0 then
+          parts[#parts + 1] = '%' .. first .. 'T' .. hl('CwdTabsCount')
+            .. (shown and '' or ' ') .. '[+' .. hidden .. '] ' .. '%T'
+        end
+      else
+        -- Each tab a native click target selecting that tab.
+        for _, tab in ipairs(group.tabs) do
+          parts[#parts + 1] = tab_cell(tab)
+        end
       end
     end
 
@@ -309,6 +357,27 @@ function M.tcd_to_buffer()
   vim.notify('tcd → ' .. dir)
 end
 
+-- Toggle the folded state of a tab group (see M.render). With no count, acts on
+-- the current tab's group; with a count N (e.g. "3gGz"), acts on the group that
+-- tab N belongs to -- a way to name a group, which has no number of its own, by
+-- one of its tabs. `count` defaults to v:count, so the mapping needs no arg.
+function M.toggle_collapse(count)
+  count = count or vim.v.count
+  local tabnr
+  if count > 0 then
+    if count > vim.fn.tabpagenr('$') then
+      vim.notify('cwdtabs: no tab ' .. count, vim.log.levels.WARN)
+      return
+    end
+    tabnr = count
+  else
+    tabnr = vim.fn.tabpagenr()
+  end
+  local cwd = tab_cwd(tabnr)
+  collapsed[cwd] = not collapsed[cwd] or nil
+  redraw_tabline()
+end
+
 --------------------------------------------------------------------------------
 -- Setup
 --------------------------------------------------------------------------------
@@ -319,14 +388,7 @@ local function set_highlights()
   vim.api.nvim_set_hl(0, 'CwdTabsGroup', { link = 'Directory' })
   vim.api.nvim_set_hl(0, 'CwdTabsGroupSel', { link = 'Title' })
   vim.api.nvim_set_hl(0, 'CwdTabsFill', { link = 'TabLineFill' })
-end
-
--- Force the tabline to re-evaluate its 'tabline' expression. A same-tab :tcd
--- from a normal-mode mapping (gGc) changes no visible buffer content, so it
--- triggers no repaint on its own; :redrawtabline is the public nudge. The
--- caller schedules it to run after the triggering command finishes.
-local function redraw_tabline()
-  vim.cmd('redrawtabline')
+  vim.api.nvim_set_hl(0, 'CwdTabsCount', { link = 'TabLine' })
 end
 
 -- <Plug> mappings, created by setup(): the remappable layer for each action.
@@ -342,6 +404,8 @@ local function set_plug_mappings()
     { desc = 'cwdtabs: last-used tab group' })
   map('n', '<Plug>(cwdtabs-recenter)', M.tcd_to_buffer,
     { desc = 'cwdtabs: recenter tab on buffer dir' })
+  map('n', '<Plug>(cwdtabs-toggle-collapse)', M.toggle_collapse,
+    { desc = 'cwdtabs: fold/unfold a tab group' })
 end
 
 -- The mappings installed by setup{ default_keymaps = true }, wiring the gG*
@@ -357,6 +421,8 @@ local function set_default_keymaps()
     { remap = true, desc = 'Last-used tab group (CWD)' })
   map('n', 'gGc', '<Plug>(cwdtabs-recenter)',
     { remap = true, desc = 'tcd tab to buffer dir' })
+  map('n', 'gGz', '<Plug>(cwdtabs-toggle-collapse)',
+    { remap = true, desc = 'Fold/unfold tab group (CWD)' })
 end
 
 -- User commands, created by setup(): thin wrappers over the public functions.
@@ -367,6 +433,8 @@ local function set_commands()
   cmd('CwdTabsLast', M.last_group, { desc = 'cwdtabs: last-used tab group' })
   cmd('CwdTabsRecenter', M.tcd_to_buffer,
     { desc = 'cwdtabs: recenter tab on buffer dir' })
+  cmd('CwdTabsToggleCollapse', function(o) M.toggle_collapse(o.count) end,
+    { count = 0, desc = 'cwdtabs: fold/unfold a tab group' })
 end
 
 local defaults = {
@@ -395,6 +463,7 @@ function M.setup(opts)
     group = group,
     callback = function()
       track_focus()
+      prune_collapsed()
       vim.schedule(redraw_tabline)
     end,
   })
