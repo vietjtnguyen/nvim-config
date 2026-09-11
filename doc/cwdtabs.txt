@@ -100,6 +100,8 @@ The defaults are equivalent to: >lua
 	vim.keymap.set('n', 'gG<Tab>', cwdtabs.last_group)
 	vim.keymap.set('n', 'gGc', cwdtabs.tcd_to_buffer)
 	vim.keymap.set('n', 'gGz', cwdtabs.toggle_collapse)
+	vim.keymap.set('n', 'gGM', cwdtabs.fold_all)
+	vim.keymap.set('n', 'gGR', cwdtabs.unfold_all)
 <
 Set default_keymaps to false and copy the above to choose your own keys.
 
@@ -115,6 +117,8 @@ The available <Plug> mappings are:
 	<Plug>(cwdtabs-last-group)	|cwdtabs.last_group()|
 	<Plug>(cwdtabs-recenter)	|cwdtabs.tcd_to_buffer()|
 	<Plug>(cwdtabs-toggle-collapse)	|cwdtabs.toggle_collapse()|
+	<Plug>(cwdtabs-fold-all)	|cwdtabs.fold_all()|
+	<Plug>(cwdtabs-unfold-all)	|cwdtabs.unfold_all()|
 
 						*cwdtabs-gGt*
 gGt			Go to the next group.  Wraps around.
@@ -145,6 +149,13 @@ gGz			Fold or unfold a tab group, hiding its tabs behind
 			{count} belongs to -- a way to name a group, which
 			has no number of its own, by one of its tabs.
 
+						*cwdtabs-gGM*
+gGM			Fold all groups.  Mirrors |zM|.  The current tab
+			stays visible in its own group.
+
+						*cwdtabs-gGR*
+gGR			Unfold all groups.  Mirrors |zR|.
+
 ==============================================================================
 5. Commands						*cwdtabs-commands*
 
@@ -169,6 +180,12 @@ setup() also defines these commands, thin wrappers over |cwdtabs-api|:
 :[count]CwdTabsToggleCollapse
 			Fold or unfold a tab group.  A [count] names the
 			group by one of its tabs, as with |cwdtabs-gGz|.
+
+						*:CwdTabsFoldAll*
+:CwdTabsFoldAll		Fold all groups.  See |cwdtabs.fold_all()|.
+
+						*:CwdTabsUnfoldAll*
+:CwdTabsUnfoldAll	Unfold all groups.  See |cwdtabs.unfold_all()|.
 
 ==============================================================================
 6. Lua API						*cwdtabs-api*
@@ -205,6 +222,13 @@ require('cwdtabs').toggle_collapse([{count}])
 			number; omitted or 0 means the current tab's group.
 			With no argument it reads |v:count|, so it works
 			directly as a mapping (see |cwdtabs-gGz|).
+
+						*cwdtabs.fold_all()*
+require('cwdtabs').fold_all()
+						*cwdtabs.unfold_all()*
+require('cwdtabs').unfold_all()
+			Fold or unfold every group at once.  See
+			|cwdtabs-gGM| and |cwdtabs-gGR|.
 
 						*cwdtabs.groups()*
 require('cwdtabs').groups()

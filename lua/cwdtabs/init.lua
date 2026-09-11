@@ -378,6 +378,22 @@ function M.toggle_collapse(count)
   redraw_tabline()
 end
 
+-- Fold every group (like |zM| for folds). The never-hide-current rule still
+-- shows the current tab, so you stay oriented -- the tabline shrinks to a row
+-- of "name: [+N]" projects with your spot marked in its own group.
+function M.fold_all()
+  for _, g in ipairs(build_groups()) do
+    collapsed[g.cwd] = true
+  end
+  redraw_tabline()
+end
+
+-- Unfold every group (like |zR|): clear all fold state.
+function M.unfold_all()
+  for cwd in pairs(collapsed) do collapsed[cwd] = nil end
+  redraw_tabline()
+end
+
 --------------------------------------------------------------------------------
 -- Setup
 --------------------------------------------------------------------------------
@@ -406,6 +422,10 @@ local function set_plug_mappings()
     { desc = 'cwdtabs: recenter tab on buffer dir' })
   map('n', '<Plug>(cwdtabs-toggle-collapse)', M.toggle_collapse,
     { desc = 'cwdtabs: fold/unfold a tab group' })
+  map('n', '<Plug>(cwdtabs-fold-all)', M.fold_all,
+    { desc = 'cwdtabs: fold all tab groups' })
+  map('n', '<Plug>(cwdtabs-unfold-all)', M.unfold_all,
+    { desc = 'cwdtabs: unfold all tab groups' })
 end
 
 -- The mappings installed by setup{ default_keymaps = true }, wiring the gG*
@@ -423,6 +443,10 @@ local function set_default_keymaps()
     { remap = true, desc = 'tcd tab to buffer dir' })
   map('n', 'gGz', '<Plug>(cwdtabs-toggle-collapse)',
     { remap = true, desc = 'Fold/unfold tab group (CWD)' })
+  map('n', 'gGM', '<Plug>(cwdtabs-fold-all)',
+    { remap = true, desc = 'Fold all tab groups (CWD)' })
+  map('n', 'gGR', '<Plug>(cwdtabs-unfold-all)',
+    { remap = true, desc = 'Unfold all tab groups (CWD)' })
 end
 
 -- User commands, created by setup(): thin wrappers over the public functions.
@@ -435,6 +459,9 @@ local function set_commands()
     { desc = 'cwdtabs: recenter tab on buffer dir' })
   cmd('CwdTabsToggleCollapse', function(o) M.toggle_collapse(o.count) end,
     { count = 0, desc = 'cwdtabs: fold/unfold a tab group' })
+  cmd('CwdTabsFoldAll', M.fold_all, { desc = 'cwdtabs: fold all tab groups' })
+  cmd('CwdTabsUnfoldAll', M.unfold_all,
+    { desc = 'cwdtabs: unfold all tab groups' })
 end
 
 local defaults = {
