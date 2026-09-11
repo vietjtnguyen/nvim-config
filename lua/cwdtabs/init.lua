@@ -128,14 +128,12 @@ local SEP = ' │ ' -- between groups
 -- persists; prune_collapsed() drops it for groups that cease to exist.
 local collapsed = {}
 
--- One tab rendered as a clickable, highlighted tabline cell.
-local function tab_cell(tab)
+-- Plain (unhighlighted, unescaped) label text for a tab: its number plus buffer
+-- basename, or "<n> $cmd" for a terminal. pcall-guarded like tab_label, since
+-- window/buffer handles can be briefly invalid during teardown.
+local function tab_plain(tab)
   local label = select(2, pcall(tab_label, tab.id, tab.nr))
-  if type(label) ~= 'string' then label = tostring(tab.nr) end
-  return '%' .. tab.nr .. 'T'
-    .. hl(tab.is_current and 'TabLineSel' or 'TabLine')
-    .. ' ' .. esc(label) .. ' '
-    .. '%T'
+  return (type(label) == 'string') and label or tostring(tab.nr)
 end
 
 -- Force the tabline to re-evaluate its 'tabline' expression. A mapping that
@@ -158,23 +156,93 @@ local function prune_collapsed()
   end
 end
 
+-- Elision markers shown at the edges when tabs are scrolled off (see assemble).
+local MARK_L = '‹'
+local MARK_R = '›'
+
+-- Serialize a segment { text, hl, tab? } to tabline markup: its highlighted,
+-- %-escaped text, wrapped in a %nT click region when it maps to a tab.
+local function seg_markup(s)
+  if s.tab then
+    return '%' .. s.tab .. 'T' .. hl(s.hl) .. esc(s.text) .. '%T'
+  end
+  return hl(s.hl) .. esc(s.text)
+end
+
+-- Assemble the segment list into the final tabline string. The tabline is one
+-- physical line, so when the segments are wider than the screen we show a
+-- contiguous window that always contains the current tab, rather than letting
+-- Neovim truncate it off the right edge. The window is seeded with the current
+-- group's "<label> ... <current tab>" so you keep seeing which project you're
+-- in, then grown outward into both neighbours; '‹'/'›' mark tabs scrolled off
+-- each side. It's derived fresh every render (no stored scroll offset) so it
+-- can't drift out of sync, matching the rest of the model.
+local function assemble(segs, cur, cur_label)
+  local cols = vim.o.columns
+  local function wof(s) return vim.fn.strdisplaywidth(s.text) end
+
+  local total = 0
+  for _, s in ipairs(segs) do total = total + wof(s) end
+
+  local lo, hi = 1, #segs
+  if cur and total > cols then
+    lo, hi = cur, cur
+    local used = wof(segs[cur])
+    -- Seed with the current group's label through the current tab, when that
+    -- whole run fits (less 2 cols kept for the markers).
+    if cur_label and cur_label < cur then
+      local seed = 0
+      for k = cur_label, cur do seed = seed + wof(segs[k]) end
+      if seed <= cols - 2 then lo, used = cur_label, seed end
+    end
+    -- Grow outward, right then left, while it fits -- leaving room for the
+    -- elision marker that will then be needed on each side.
+    local function fits(extra)
+      local b = cols - (lo > 1 and 1 or 0) - (hi < #segs and 1 or 0)
+      return used + extra <= b
+    end
+    local grew = true
+    while grew do
+      grew = false
+      if hi < #segs and fits(wof(segs[hi + 1])) then
+        hi = hi + 1; used = used + wof(segs[hi]); grew = true
+      end
+      if lo > 1 and fits(wof(segs[lo - 1])) then
+        lo = lo - 1; used = used + wof(segs[lo]); grew = true
+      end
+    end
+  end
+
+  local parts = {}
+  if lo > 1 then parts[#parts + 1] = hl('CwdTabsFill') .. MARK_L end
+  for k = lo, hi do parts[#parts + 1] = seg_markup(segs[k]) end
+  if hi < #segs then parts[#parts + 1] = hl('CwdTabsFill') .. MARK_R end
+  -- Fill the rest of the line and make sure no click region dangles.
+  parts[#parts + 1] = hl('CwdTabsFill') .. '%T'
+  return table.concat(parts)
+end
+
 function M.render()
   local ok, out = pcall(function()
-    local parts = {}
     local groups = build_groups()
+    local segs = {}       -- { text, hl, tab? } cells, in display order
+    local cur, cur_label  -- indices of the current tab cell and its group label
 
     for gi, group in ipairs(groups) do
       if gi > 1 then
-        parts[#parts + 1] = hl('CwdTabsFill') .. SEP
+        segs[#segs + 1] = { text = SEP, hl = 'CwdTabsFill' }
       end
 
-      -- Group label, clickable: selects the group's first tab (native %nT
-      -- click target). The current tab's group is highlighted distinctly.
+      -- Group label, clickable to the group's first tab. The current group's
+      -- label is highlighted, and its index is kept so assemble() can keep it
+      -- in view when it slices.
       local first = group.tabs[1].nr
-      parts[#parts + 1] = '%' .. first .. 'T'
-        .. hl(group.has_current and 'CwdTabsGroupSel' or 'CwdTabsGroup')
-        .. ' ' .. esc(group_label(group.cwd)) .. ':'
-        .. '%T'
+      segs[#segs + 1] = {
+        text = ' ' .. group_label(group.cwd) .. ':',
+        hl = group.has_current and 'CwdTabsGroupSel' or 'CwdTabsGroup',
+        tab = first,
+      }
+      if group.has_current then cur_label = #segs end
 
       if collapsed[group.cwd] then
         -- Folded: keep the current tab visible (never hide where you are) and
@@ -184,23 +252,27 @@ function M.render()
         for _, tab in ipairs(group.tabs) do
           if tab.is_current then shown = tab break end
         end
-        if shown then parts[#parts + 1] = tab_cell(shown) end
+        if shown then
+          segs[#segs + 1] = { text = ' ' .. tab_plain(shown) .. ' ',
+            hl = 'TabLineSel', tab = shown.nr }
+          cur = #segs
+        end
         local hidden = #group.tabs - (shown and 1 or 0)
         if hidden > 0 then
-          parts[#parts + 1] = '%' .. first .. 'T' .. hl('CwdTabsCount')
-            .. (shown and '' or ' ') .. '[+' .. hidden .. '] ' .. '%T'
+          local mk = (shown and '' or ' ') .. '[+' .. hidden .. '] '
+          segs[#segs + 1] = { text = mk, hl = 'CwdTabsCount', tab = first }
         end
       else
         -- Each tab a native click target selecting that tab.
         for _, tab in ipairs(group.tabs) do
-          parts[#parts + 1] = tab_cell(tab)
+          segs[#segs + 1] = { text = ' ' .. tab_plain(tab) .. ' ',
+            hl = tab.is_current and 'TabLineSel' or 'TabLine', tab = tab.nr }
+          if tab.is_current then cur = #segs end
         end
       end
     end
 
-    -- Fill the rest of the line and make sure no click region dangles.
-    parts[#parts + 1] = hl('CwdTabsFill') .. '%T'
-    return table.concat(parts)
+    return assemble(segs, cur, cur_label)
   end)
 
   if not ok then

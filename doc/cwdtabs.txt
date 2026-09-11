@@ -79,6 +79,12 @@ while a folded group you are not in shows just its name and count: >
 The count clicks through to the group's first tab.  Folding is a view state
 only; it does not change grouping, and it is not remembered across sessions.
 
+The tabline is one physical line.  When the groups and tabs are wider than the
+screen it slides to keep the current tab visible: the current group's label
+and tab stay in view, and tabs scrolled off the left or right edge are marked
+with "‹" and "›".  The window is recomputed on every redraw, so it never
+drifts.  Folding a group (above) is another way to reclaim width.
+
 The tabline refreshes when tabs are created, closed or switched, and when any
 directory changes (|:tcd|, |:lcd|, |:cd|).
 
@@ -270,8 +276,9 @@ Tabs use the standard |hl-TabLine| and |hl-TabLineSel| (current tab) groups.
 ==============================================================================
 8. Limitations						*cwdtabs-limitations*
 
-The tabline is a single physical line.  When it is wider than the screen
-Neovim truncates it; there is no horizontal scrolling.
+The tabline is a single physical line.  When the tabs are wider than the
+screen it slides to keep the current tab visible, marking elided tabs with "‹"
+and "›" (see |cwdtabs-tabline|); it does not wrap onto a second line.
 
 Directories are normalized with |vim.fs.normalize()|, but symlinks are not
 resolved.  Two tabs reaching one directory by different symlink paths form
