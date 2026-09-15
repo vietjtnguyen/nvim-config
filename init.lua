@@ -126,6 +126,24 @@ end
 -- |cwdtabs-mappings| for what they do and how to bind your own instead.
 require('cwdtabs').setup({ default_keymaps = true })
 
+-- A second prefix for the cwdtabs actions: <C-g> ("group"), a single chord,
+-- alongside the plugin's gG defaults. Bound at config level via the plugin's
+-- <Plug> mappings (not in the plugin) so gG stays its one documented default.
+-- v:count flows through (e.g. 3<C-g>z folds tab 3's group). Normal mode only,
+-- to leave <C-g>'s visual-mode select toggle alone. <C-g><C-g> opens the tab
+-- picker, alongside <Space>G below.
+for _, m in ipairs({
+  { '<C-g>t', '<Plug>(cwdtabs-next-group)', 'Next tab group' },
+  { '<C-g>T', '<Plug>(cwdtabs-prev-group)', 'Prev tab group' },
+  { '<C-g><Tab>', '<Plug>(cwdtabs-last-group)', 'Last-used tab group' },
+  { '<C-g>c', '<Plug>(cwdtabs-recenter)', 'tcd tab to buffer dir' },
+  { '<C-g>z', '<Plug>(cwdtabs-toggle-collapse)', 'Fold/unfold tab group' },
+  { '<C-g>M', '<Plug>(cwdtabs-fold-all)', 'Fold all tab groups' },
+  { '<C-g>R', '<Plug>(cwdtabs-unfold-all)', 'Unfold all tab groups' },
+}) do
+  vim.keymap.set('n', m[1], m[2], { remap = true, desc = m[3] })
+end
+
 --------------------------------------------------------------------------------
 -- Treesitter navigation (treewalker.nvim)
 --------------------------------------------------------------------------------
@@ -276,6 +294,11 @@ end, { desc = 'Workspace Symbols: Functions/Methods' })
 -- are a Telescope view of require('cwdtabs').groups(); see
 -- lua/cwdtabs_pickers.lua.
 vim.keymap.set({ 'n', 'v', 'o' }, '<Space>G', function()
+  require('cwdtabs_pickers').pick_tabs()
+end, { desc = 'Pick Tab' })
+
+-- <C-g><C-g> mirrors <Space>G under the <C-g> prefix (see above).
+vim.keymap.set('n', '<C-g><C-g>', function()
   require('cwdtabs_pickers').pick_tabs()
 end, { desc = 'Pick Tab' })
 
@@ -645,6 +668,7 @@ require('which-key').setup({
 require('which-key').add({
   { '<Space>g', group = 'git' },
   { 'gG', group = 'group' },
+  { '<C-g>', group = 'group' },
   { 'gr', group = 'lsp' },
   { 'gra', desc = 'Code Action', mode = { 'n', 'x' } },
   { 'gri', desc = 'Implementations' },
