@@ -351,6 +351,47 @@ function M.last_group()
   if id then vim.api.nvim_set_current_tabpage(id) end
 end
 
+-- Tab ids in tabline (display) order: group by group, tabs in tab order within
+-- each. This is the spatial left-to-right sequence, which differs from tab
+-- number order when groups interleave (native tabs 1:A 2:B 3:A render A[1 3]
+-- B[2], so 1's right neighbour is 3, not 2).
+local function spatial_order()
+  local ids = {}
+  for _, g in ipairs(build_groups()) do
+    for _, t in ipairs(g.tabs) do ids[#ids + 1] = t.id end
+  end
+  return ids
+end
+
+-- Step to the tab `delta` positions away in tabline order, wrapping -- the
+-- spatial counterpart of gt/gT. A count is left to native gt/gT: {count}gt goes
+-- to tab *number* {count}, which stays useful because the tabline shows those
+-- numbers. Folding is orthogonal -- every tab is still in the sequence, so gt
+-- into a folded group surfaces the tab you land on (group skipping is gGt).
+local function goto_tab_spatial(delta)
+  local count = vim.v.count
+  if count > 0 then
+    vim.cmd('normal! ' .. count .. (delta > 0 and 'gt' or 'gT'))
+    return
+  end
+  local order = spatial_order()
+  if #order < 2 then return end
+  local cur = vim.api.nvim_get_current_tabpage()
+  local idx
+  for i, id in ipairs(order) do
+    if id == cur then idx = i break end
+  end
+  if not idx then
+    vim.cmd('normal! ' .. (delta > 0 and 'gt' or 'gT'))
+    return
+  end
+  local target = (idx - 1 + delta) % #order + 1
+  vim.api.nvim_set_current_tabpage(order[target])
+end
+
+function M.next_tab() goto_tab_spatial(1) end
+function M.prev_tab() goto_tab_spatial(-1) end
+
 -- Most-recently-spawned child of `pid` (Linux /proc), or nil. Mirrors how the
 -- process-chain walk picks the "active" descendant at each step.
 local function proc_last_child(pid)
@@ -498,6 +539,21 @@ local function set_plug_mappings()
     { desc = 'cwdtabs: fold all tab groups' })
   map('n', '<Plug>(cwdtabs-unfold-all)', M.unfold_all,
     { desc = 'cwdtabs: unfold all tab groups' })
+  map('n', '<Plug>(cwdtabs-next-tab)', M.next_tab,
+    { desc = 'cwdtabs: next tab (spatial)' })
+  map('n', '<Plug>(cwdtabs-prev-tab)', M.prev_tab,
+    { desc = 'cwdtabs: previous tab (spatial)' })
+end
+
+-- Installed by setup{ spatial_tab_motions = true }: remap gt/gT to walk the
+-- tabline left-to-right instead of by tab number. Independent of the gG*
+-- default_keymaps -- it changes built-ins, so it's opt-in on its own.
+local function set_spatial_tab_motions()
+  local map = vim.keymap.set
+  map('n', 'gt', '<Plug>(cwdtabs-next-tab)',
+    { remap = true, desc = 'Next tab (spatial)' })
+  map('n', 'gT', '<Plug>(cwdtabs-prev-tab)',
+    { remap = true, desc = 'Prev tab (spatial)' })
 end
 
 -- The mappings installed by setup{ default_keymaps = true }, wiring the gG*
@@ -534,10 +590,15 @@ local function set_commands()
   cmd('CwdTabsFoldAll', M.fold_all, { desc = 'cwdtabs: fold all tab groups' })
   cmd('CwdTabsUnfoldAll', M.unfold_all,
     { desc = 'cwdtabs: unfold all tab groups' })
+  cmd('CwdTabsNextTab', M.next_tab,
+    { desc = 'cwdtabs: next tab (spatial)' })
+  cmd('CwdTabsPrevTab', M.prev_tab,
+    { desc = 'cwdtabs: previous tab (spatial)' })
 end
 
 local defaults = {
-  default_keymaps = false, -- install the gG* mappings
+  default_keymaps = false,     -- install the gG* mappings
+  spatial_tab_motions = false, -- remap gt/gT to tabline (spatial) order
 }
 
 function M.setup(opts)
@@ -574,6 +635,9 @@ function M.setup(opts)
   set_commands()
   if opts.default_keymaps then
     set_default_keymaps()
+  end
+  if opts.spatial_tab_motions then
+    set_spatial_tab_motions()
   end
 end
 

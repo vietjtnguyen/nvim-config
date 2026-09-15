@@ -122,9 +122,13 @@ do
     pcall(vim.cmd.helptags, doc)
   end
 end
--- default_keymaps installs the gG* group motions (gGt/gGT/gG<Tab>/gGc); see
--- |cwdtabs-mappings| for what they do and how to bind your own instead.
-require('cwdtabs').setup({ default_keymaps = true })
+-- default_keymaps installs the gG* group motions (gGt/gGT/gG<Tab>/gGc/gGz/...);
+-- spatial_tab_motions remaps gt/gT to walk the tabline left-to-right instead of
+-- by tab number (a count still goes to that tab number). See |cwdtabs-mappings|.
+require('cwdtabs').setup({
+  default_keymaps = true,
+  spatial_tab_motions = true,
+})
 
 -- A second prefix for the cwdtabs actions: <C-g> ("group"), a single chord,
 -- alongside the plugin's gG defaults. Bound at config level via the plugin's

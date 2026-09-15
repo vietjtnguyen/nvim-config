@@ -48,6 +48,15 @@ default_keymaps
 		When true, install the default gG* mappings; see
 		|cwdtabs-mappings|.  Leave it false to bind your own keys.
 
+						*cwdtabs-spatial_tab_motions*
+spatial_tab_motions
+		Type: boolean.  Default: false.
+		When true, remap |gt| and |gT| to move by tabline position
+		(gt right, gT left) instead of by tab number; see
+		|cwdtabs-gt|.  A count is left to the built-ins, so
+		"{count}gt" still jumps to tab number {count}.
+		Independent of default_keymaps.
+
 ==============================================================================
 3. The tabline						*cwdtabs-tabline*
 
@@ -125,6 +134,8 @@ The available <Plug> mappings are:
 	<Plug>(cwdtabs-toggle-collapse)	|cwdtabs.toggle_collapse()|
 	<Plug>(cwdtabs-fold-all)	|cwdtabs.fold_all()|
 	<Plug>(cwdtabs-unfold-all)	|cwdtabs.unfold_all()|
+	<Plug>(cwdtabs-next-tab)	|cwdtabs.next_tab()|
+	<Plug>(cwdtabs-prev-tab)	|cwdtabs.prev_tab()|
 
 						*cwdtabs-gGt*
 gGt			Go to the next group.  Wraps around.
@@ -162,6 +173,18 @@ gGM			Fold all groups.  Mirrors |zM|.  The current tab
 						*cwdtabs-gGR*
 gGR			Unfold all groups.  Mirrors |zR|.
 
+						*cwdtabs-gt* *cwdtabs-gT*
+gt, gT			Only when |cwdtabs-spatial_tab_motions| is on: move
+			to the next (gt) or previous (gT) tab in tabline
+			order, wrapping.  This is the left-to-right display
+			order, which differs from tab number order when
+			groups interleave -- so gt follows what you see, not
+			the numbering.  A count keeps the built-in meaning:
+			"{count}gt" goes to tab number {count}.  These are
+			not bound unless the option is set; the actions are
+			also available as |cwdtabs.next_tab()| /
+			|cwdtabs.prev_tab()|.
+
 ==============================================================================
 5. Commands						*cwdtabs-commands*
 
@@ -192,6 +215,14 @@ setup() also defines these commands, thin wrappers over |cwdtabs-api|:
 
 						*:CwdTabsUnfoldAll*
 :CwdTabsUnfoldAll	Unfold all groups.  See |cwdtabs.unfold_all()|.
+
+						*:CwdTabsNextTab*
+:CwdTabsNextTab		Go to the next tab in tabline order.  See
+			|cwdtabs.next_tab()|.
+
+						*:CwdTabsPrevTab*
+:CwdTabsPrevTab		Go to the previous tab in tabline order.  See
+			|cwdtabs.prev_tab()|.
 
 ==============================================================================
 6. Lua API						*cwdtabs-api*
@@ -235,6 +266,15 @@ require('cwdtabs').fold_all()
 require('cwdtabs').unfold_all()
 			Fold or unfold every group at once.  See
 			|cwdtabs-gGM| and |cwdtabs-gGR|.
+
+						*cwdtabs.next_tab()*
+require('cwdtabs').next_tab()
+						*cwdtabs.prev_tab()*
+require('cwdtabs').prev_tab()
+			Move to the next or previous tab in tabline
+			(spatial) order, wrapping.  See |cwdtabs-gt|.  With
+			no |v:count| they step one tab; with a count they
+			defer to the built-in gt/gT.
 
 						*cwdtabs.groups()*
 require('cwdtabs').groups()
