@@ -1,0 +1,230 @@
+*aaag.txt*  A quicklook dashboard of running Claude Code CLI sessions
+
+==============================================================================
+CONTENTS					*aaag* *aaag-contents*
+
+1. Introduction ...................... |aaag-introduction|
+2. Setup ............................. |aaag-setup|
+3. The dashboard ..................... |aaag-dashboard|
+4. Mappings .......................... |aaag-mappings|
+5. Commands .......................... |aaag-commands|
+6. Lua API ........................... |aaag-api|
+7. Highlights ........................ |aaag-highlights|
+8. Requirements ...................... |aaag-requirements|
+9. Limitations ....................... |aaag-limitations|
+
+==============================================================================
+1. Introduction						*aaag-introduction*
+
+aaag ("agents at a glance") shows a floating dashboard of the Claude Code CLI
+sessions you already have running in Neovim terminal tabs.  It observes them;
+it does not launch, own, or orchestrate them.
+
+Everything is derived from state that Claude Code and Neovim already expose:
+live sessions from the per-process metadata under >
+	~/.claude/sessions/{PID}.json
+<filtered to PIDs that are still a running "claude"; deterministic age and
+activity from each session's transcript; and short natural-language summaries
+from asynchronous "claude -p" calls.  Removing the plugin leaves your sessions
+and terminals untouched.
+
+Each session is a card showing its working directory, age, the durable thread
+of the work, what you last asked, and what the agent is doing now (often:
+waiting on you).  Cards are laid out in a navigable grid; selecting one jumps
+to the terminal tab hosting that session.
+
+==============================================================================
+2. Setup						*aaag-setup*
+
+Call |aaag.setup()| once, from your config: >lua
+
+	require('aaag').setup({
+		default_keymaps = true,
+	})
+<
+setup() accepts a table with these options (defaults shown):
+
+						*aaag-default_keymaps*
+default_keymaps ~
+	Type: boolean.  Default: false.
+	When true, bind gA to toggle the dashboard (through
+	|<Plug>(aaag-toggle)|).  Leave false to bind your own keys; see
+	|aaag-mappings|.
+
+						*aaag-fold_default*
+fold_default ~
+	Type: string.  Default: "expanded".
+	Initial fold state when the dashboard opens:
+	  "expanded"   every card shows all fields
+	  "collapsed"  every card shows only its header line
+	  "blocked"    collapse all except cards waiting on you
+
+						*aaag-claude_dir*
+claude_dir ~
+	Type: string.  Default: stdpath-independent ~/.claude.
+	Where Claude Code keeps its state (sessions/ and projects/).
+
+						*aaag-model*
+model ~
+	Type: string.  Default: "claude-haiku-4-5-20251001".
+	Model used for the summary calls.  Latency here is dominated by
+	context prefill, not model size, so the cheapest tier is used.
+
+						*aaag-stale_days*
+stale_days ~
+	Type: number.  Default: 3.
+	A session idle (no transcript activity) for this many days is shown
+	as stale and sinks in the sort order.
+
+						*aaag-columns* *aaag-grid*
+columns ~
+	Type: "auto" | number.  Default: "auto".
+	Grid column count.  "auto" derives it from the window width and
+	|aaag-card_width|, capped at |aaag-max_columns|; a number forces it.
+
+max_columns ~			*aaag-max_columns*
+	Type: number.  Default: 3.  Upper bound on "auto" columns.
+
+card_width ~			*aaag-card_width*
+	Type: number.  Default: 46.  Target minimum cell width for "auto".
+
+col_sep ~			*aaag-col_sep*
+	Type: number.  Default: 3.  Width of the gap between columns.
+
+column_rule ~			*aaag-column_rule*
+	Type: boolean.  Default: true.  Draw a light vertical rule in the
+	gap between columns; false for plain whitespace.
+
+width_frac, height_frac ~	*aaag-width_frac* *aaag-height_frac*
+	Type: number.  Defaults: 0.92, 0.88.  Float size as a fraction of
+	the editor.
+
+tail_msgs, tail_chars ~		*aaag-tail_msgs* *aaag-tail_chars*
+	Type: number.  Defaults: 50, 35000.  Bound the recent-turns tail fed
+	to the stateless summary call.
+
+==============================================================================
+3. The dashboard					*aaag-dashboard*
+
+Cards are laid into a grid, sorted so what needs attention rises to the top:
+blocked (waiting on you) > busy > idle > stale > closed.  Each card has a
+coloured left gutter bar whose colour is its attention state, so the left edge
+reads the state at a glance.
+
+A card, expanded, shows: working directory; a deterministic age line (start,
+event count, active days, and any long quiet gap); and the summary fields
+Thread, Now, Last from me, State, and Arc.  Collapsed, it is a single header
+line with the thread trailing.  Fold a card with <Tab> to trade detail for
+density.
+
+Summaries fill in progressively: the deterministic fields appear immediately,
+the prose as the model calls return.  Idle sessions use a fork of the session
+for the (cached) identity plus a stateless call for the live state; busy
+sessions use a single stateless call.  Results are cached by transcript
+modification time, so an unchanged session is not re-summarized.
+
+==============================================================================
+4. Mappings						*aaag-mappings*
+
+Inside the dashboard (buffer-local):		*aaag-keys*
+
+	h l k j		Move the selection left/right/up/down between cards.
+	<Left> <Right> <Up> <Down>   Same.
+	<CR>		Jump to the terminal tab hosting the selected session.
+	<Tab>, za	Fold/unfold the selected card.
+	zM, zR		Fold all / unfold all.
+	r		Re-prompt the selected card's summaries. |aaag-r|
+	R		Refresh all cards (mtime-cached).
+	q, <Esc>	Close the dashboard.
+
+Global <Plug> mappings (bind your own keys with |:map| and remap):
+
+	<Plug>(aaag-toggle)	Toggle the dashboard.	*aaag-<Plug>*
+	<Plug>(aaag-open)	Open the dashboard.
+	<Plug>(aaag-refresh)	Force-refresh all summaries.
+	<Plug>(aaag-picker)	Open the telescope picker.
+
+Example: >lua
+	vim.keymap.set('n', '<leader>a', '<Plug>(aaag-toggle)')
+<
+With |aaag-default_keymaps| enabled, gA maps to <Plug>(aaag-toggle).
+
+						*aaag-r*
+r re-prompts only the selected card: it drops that card's cached summary
+and recomputes it (its deterministic fields refresh too).  The old prose
+stays visible until each new field lands, so the card does not blank.
+
+==============================================================================
+5. Commands						*aaag-commands*
+
+:Aaag			Open the dashboard.		*:Aaag*
+:AaagToggle		Toggle the dashboard.		*:AaagToggle*
+:AaagRefresh		Force-refresh all summaries	*:AaagRefresh*
+			(drops the whole cache first).
+:AaagPicker		Open the telescope picker.	*:AaagPicker*
+
+==============================================================================
+6. Lua API						*aaag-api*
+
+						*aaag.setup()*
+require('aaag').setup({opts})
+			Configure and register commands/mappings.  See
+			|aaag-setup|.
+
+require('aaag').open()			*aaag.open()*
+require('aaag').toggle()		*aaag.toggle()*
+			Open / toggle the dashboard.
+
+require('aaag').refresh()		*aaag.refresh()*
+			Re-enumerate and reload; summaries are mtime-cached.
+
+require('aaag').refresh_full()		*aaag.refresh_full()*
+			As refresh(), but drops the summary cache first.
+
+require('aaag').telescope()		*aaag.telescope()*
+			Open the telescope picker over the same sessions.
+
+==============================================================================
+7. Highlights						*aaag-highlights*
+
+All groups are defined with default links, so a colorscheme can override them.
+The attention groups also colour each card's gutter bar.
+
+	AaagBlocked	Waiting on you.		(link: DiagnosticWarn)
+	AaagBusy	Actively working.	(link: DiagnosticOk)
+	AaagIdle	Idle.			(link: Function)
+	AaagStale	Idle beyond stale_days.	(link: Comment)
+	AaagClosed	Closed / safe to drop.	(link: Comment)
+	AaagName	Session name.		(link: Title)
+	AaagLabel	Field labels.		(link: Comment)
+	AaagMeta	CWD and age line.	(link: NonText)
+	AaagSelect	Selected card.		(link: CursorLine)
+	AaagBorder	Column rule.		(link: WinSeparator)
+
+==============================================================================
+8. Requirements						*aaag-requirements*
+
+- Neovim 0.10+ (uses |vim.system()| and |vim.uv|).
+- The Claude Code CLI ("claude") on your PATH, for summaries.  Without it the
+  deterministic card fields still render.
+- Linux for the process-based liveness check and terminal-tab jump, which read
+  /proc.  Off Linux, liveness falls back to a signal-0 probe and the jump to
+  "ps"; both are best-effort.
+- telescope.nvim is optional; only |:AaagPicker| needs it.
+
+Run |:checkhealth| aaag to verify these.		*aaag-health*
+
+==============================================================================
+9. Limitations						*aaag-limitations*
+
+- <CR> jumps only to a session hosted in a visible Neovim terminal buffer.  A
+  session running under tmux or an external emulator cannot be jumped to; aaag
+  reports this rather than guessing.
+- "blocked" (waiting on you) versus plain idle is a heuristic over the model's
+  State line; Claude's own idle/busy status cannot distinguish "asked you a
+  question" from "finished cleanly".
+- Summaries cost latency (seconds per session) and, for idle sessions, the
+  fork writes a short-lived session file under ~/.claude; a refresh landing in
+  that window may briefly show a phantom card until the fork exits.
+
+ vim:tw=78:ts=8:sw=8:noet:ft=help:norl:
