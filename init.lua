@@ -149,6 +149,18 @@ for _, m in ipairs({
 end
 
 --------------------------------------------------------------------------------
+-- Agents at a glance (aaag)
+--------------------------------------------------------------------------------
+-- A quicklook float over the Claude Code CLI sessions running in terminal tabs:
+-- one card per live session with its CWD, age, current thread, and what the
+-- agent is waiting on -- derived from Claude's own on-disk state, not owned or
+-- launched by us. See lua/aaag. default_keymaps binds gA to toggle the
+-- dashboard; :AaagPicker opens the telescope view, :AaagRefresh re-summarizes.
+require('aaag').setup({
+  default_keymaps = true,
+})
+
+--------------------------------------------------------------------------------
 -- Treesitter navigation (treewalker.nvim)
 --------------------------------------------------------------------------------
 -- Move the cursor through the treesitter tree without selecting (complements
