@@ -96,8 +96,10 @@ local function load_card(card)
       timeline = transcript.timeline_str(st),
       mtime = stat.mtime.sec,
     }, function(fields)
-      card.fields = fields
-      card.loading = next(fields) == nil
+      -- Merge so a re-prompt (which starts recap's accumulator fresh) keeps the
+      -- old prose visible until each new field lands, rather than blanking.
+      card.fields = vim.tbl_extend('force', card.fields or {}, fields)
+      card.loading = false
       recompute_attention(card)
       ui.update(sorted())
     end)
@@ -143,6 +145,15 @@ end
 function M.refresh_full()
   recap.clear()
   M.refresh()
+end
+
+-- Re-prompt a single card's summaries (bound to `r` on the selected card). The
+-- deterministic fields refresh too, since load_card re-reads the transcript.
+function M.refresh_card(sid)
+  recap.invalidate(sid)
+  for _, card in ipairs(M._cards) do
+    if card.sid == sid then load_card(card); return end
+  end
 end
 
 function M.toggle()
@@ -194,6 +205,7 @@ function M.setup(opts)
   vim.api.nvim_create_autocmd('ColorScheme',
     { group = group, callback = ui.set_highlights })
   ui.on_refresh = M.refresh
+  ui.on_refresh_card = M.refresh_card
   set_commands()
   if config.opts.default_keymaps then set_default_keymaps() end
 end

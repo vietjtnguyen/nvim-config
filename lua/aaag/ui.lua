@@ -16,7 +16,8 @@ local jump = require('aaag.jump')
 
 local M = {}
 
-M.on_refresh = nil
+M.on_refresh = nil       -- refresh all cards (mtime-cached)
+M.on_refresh_card = nil  -- re-prompt one card by sid
 
 local ns = vim.api.nvim_create_namespace('aaag')
 local ns_sel = vim.api.nvim_create_namespace('aaag_sel')
@@ -386,7 +387,10 @@ local function set_keymaps()
     for _, c in ipairs(state.cards) do state.collapsed[c.sid] = false end
     redraw()
   end)
-  map('r', function() if M.on_refresh then M.on_refresh() end end)
+  map('r', function()
+    if M.on_refresh_card and state.current then M.on_refresh_card(state.current) end
+  end)
+  map('R', function() if M.on_refresh then M.on_refresh() end end)
 
   -- Keep the selection in sync when the cursor is moved by anything other than
   -- our grid keys (mouse, gg, search).

@@ -168,4 +168,9 @@ function M.clear()
   cache = {}
 end
 
+-- Drop one session's cached summary, so the next request re-prompts it.
+function M.invalidate(sid)
+  cache[sid] = nil
+end
+
 return M
