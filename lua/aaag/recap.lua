@@ -108,8 +108,11 @@ end
 -- Spawn one `claude` summary call. `resume_sid` non-nil selects method A (fork
 -- of that session); nil selects method B (stateless). on_done(fields|nil).
 local function run(prompt, cwd, resume_sid, on_done)
-  local argv = { 'claude', '-p', prompt,
-    '--model', config.opts.model, '--tools', 'none', '--strict-mcp-config' }
+  -- --no-session-persistence keeps these summary calls ephemeral: they read the
+  -- parent context (for the fork) but write no transcript of their own, so the
+  -- dashboard never litters ~/.claude with throwaway sessions.
+  local argv = { 'claude', '-p', prompt, '--model', config.opts.model,
+    '--tools', 'none', '--strict-mcp-config', '--no-session-persistence' }
   if resume_sid then
     vim.list_extend(argv, { '--resume', resume_sid, '--fork-session' })
   end
