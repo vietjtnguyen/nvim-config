@@ -171,7 +171,14 @@ function M.assemble_tail(content)
   local char_cap = config.opts.tail_chars
   local block_cap = 1200
 
-  local lines = vim.split(content, '\n', { plain = true, trimempty = true })
+  -- Only the tail matters, so split just the last slice of the file rather than
+  -- the whole (multi-MB) transcript. 1 MiB comfortably holds the recent
+  -- max_msgs*8 records; if we cut mid-record the leading partial line fails to
+  -- decode and is skipped, costing at most one older turn.
+  local TAIL_BYTES = 1024 * 1024
+  local tail = #content > TAIL_BYTES and content:sub(-TAIL_BYTES) or content
+  local lines = vim.split(tail, '\n', { plain = true, trimempty = true })
+  if #content > TAIL_BYTES then table.remove(lines, 1) end
   -- Decode at most this many trailing lines; max_msgs turns live well within it
   -- even with interleaved meta/tool records.
   local from = math.max(1, #lines - max_msgs * 8)
