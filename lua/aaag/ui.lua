@@ -187,6 +187,15 @@ local function make_cell(card, cw)
       end
     end
   end
+
+  -- A closed conversation recedes: dim every line's content (after the gutter,
+  -- which is already AaagClosed). Added last, so at equal extmark priority these
+  -- override the per-field colours -- the whole card reads as dimmed.
+  if card.attention == 'closed' then
+    for i = 1, #clines do
+      cspans[#cspans + 1] = { line = i, c0 = GLEN, c1 = -1, hl = 'AaagClosed' }
+    end
+  end
   return clines, cspans
 end
 
