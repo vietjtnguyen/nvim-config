@@ -69,7 +69,12 @@ function M.list()
     local pid = tonumber(vim.fn.fnamemodify(path, ':t:r'))
     if pid and is_live_claude(pid) then
       local meta = read_json(path)
-      if meta and meta.sessionId and meta.cwd then
+      -- Only interactive sessions belong on the dashboard. A short-lived
+      -- `claude -p` fork (e.g. the one aaag itself spawns for a summary) writes
+      -- its own metadata with a non-interactive kind; skip those so a refresh
+      -- landing in that window can't flash a phantom card.
+      if meta and meta.sessionId and meta.cwd
+          and (meta.kind == nil or meta.kind == 'interactive') then
         sessions[#sessions + 1] = {
           pid = pid,
           sid = meta.sessionId,
