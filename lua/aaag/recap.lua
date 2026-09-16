@@ -63,8 +63,12 @@ Arc: ONE sentence on the session's temporal shape, using ONLY the timeline below
 --- TRANSCRIPT TAIL ---
 ]]
 
--- sid -> { mtime, fields } ; fields = { thread, thesis, now, last, state, arc }
+-- sid -> { mtime, token, fields } ; fields = { thread, now, last, state, arc }.
+-- token is a per-request generation stamp: a late callback from a superseded
+-- request (transcript advanced, or a forced refresh) carries an old token and
+-- is dropped, so it can't overwrite fresher fields.
 local cache = {}
+local generation = 0
 
 -- Map a model output line "Label: value" (tolerating **bold** and case) onto a
 -- card field key. Unknown labels are ignored.
@@ -131,14 +135,19 @@ function M.request(opts, on_update)
     return on_update(vim.deepcopy(cached.fields))
   end
 
+  generation = generation + 1
+  local token = generation
   local fields = (cached and cached.fields) or {}
-  cache[sid] = { mtime = opts.mtime, fields = fields }
+  cache[sid] = { mtime = opts.mtime, token = token, fields = fields }
   local body = opts.tail .. '\n\n--- ACTIVITY TIMELINE (my records) ---\n'
     .. opts.timeline
 
   local function merge(new)
+    -- Drop the callback if a newer request for this session has superseded us.
+    local cur = cache[sid]
+    if not cur or cur.token ~= token then return end
     if new then fields = vim.tbl_extend('force', fields, new) end
-    cache[sid] = { mtime = opts.mtime, fields = fields }
+    cache[sid] = { mtime = opts.mtime, token = token, fields = fields }
     on_update(vim.deepcopy(fields))
   end
 
