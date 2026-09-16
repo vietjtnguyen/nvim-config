@@ -182,12 +182,25 @@ function M.telescope()
   require('aaag.telescope').picker(sorted(), M.card_text)
 end
 
+-- Inert <Plug> mappings for the global actions, so users can bind their own keys
+-- to a stable name (mirrors cwdtabs' convention). Defined unconditionally;
+-- set_default_keymaps wires the built-in bindings through them.
+local function set_plug_mappings()
+  local map = vim.keymap.set
+  map('n', '<Plug>(aaag-toggle)', M.toggle, { desc = 'aaag: toggle dashboard' })
+  map('n', '<Plug>(aaag-open)', M.open, { desc = 'aaag: open dashboard' })
+  map('n', '<Plug>(aaag-refresh)', M.refresh_full,
+    { desc = 'aaag: force-refresh all summaries' })
+  map('n', '<Plug>(aaag-picker)', M.telescope, { desc = 'aaag: telescope picker' })
+end
+
 -- Only the dashboard toggle is bound by default: 'gA' shadows no built-in. The
 -- picker is left to :AaagPicker so we don't sit on the 'ga' prefix (built-in
--- "print char value") waiting for a second key.
+-- "print char value") waiting for a second key. Wired through <Plug> so the rhs
+-- expands (remap = true).
 local function set_default_keymaps()
-  vim.keymap.set('n', 'gA', M.toggle,
-    { desc = 'aaag: toggle agents-at-a-glance dashboard' })
+  vim.keymap.set('n', 'gA', '<Plug>(aaag-toggle)',
+    { remap = true, desc = 'aaag: toggle agents-at-a-glance dashboard' })
 end
 
 local function set_commands()
@@ -207,6 +220,7 @@ function M.setup(opts)
   ui.on_refresh = M.refresh
   ui.on_refresh_card = M.refresh_card
   set_commands()
+  set_plug_mappings()
   if config.opts.default_keymaps then set_default_keymaps() end
 end
 
