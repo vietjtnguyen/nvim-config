@@ -79,22 +79,21 @@ end
 -- its summary. Called for each card after discovery.
 local function load_card(card)
   if not card.transcript then return end
-  transcript.read(card.transcript, function(stat, content)
-    if not stat then return end
-    local st = transcript.stats(content)
-    if st then
-      card.last_epoch = st.last
-      card.last_ago = transcript.ago(st.last)
-      card.meta_line = transcript.meta_line(st)
+  transcript.load(card.transcript, function(bundle)
+    if not bundle then return end
+    if bundle.last then
+      card.last_epoch = bundle.last
+      card.last_ago = transcript.ago(bundle.last)
+      card.meta_line = bundle.meta_line
     end
     recompute_attention(card)
     ui.update(sorted())
-    if not st then return end
+    if not bundle.last then return end
     recap.request({
       session = card,
-      tail = transcript.assemble_tail(content),
-      timeline = transcript.timeline_str(st),
-      mtime = stat.mtime.sec,
+      tail = bundle.tail,
+      timeline = bundle.timeline,
+      mtime = bundle.mtime,
     }, function(fields)
       -- Merge so a re-prompt (which starts recap's accumulator fresh) keeps the
       -- old prose visible until each new field lands, rather than blanking.

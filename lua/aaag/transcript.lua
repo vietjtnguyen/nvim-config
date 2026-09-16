@@ -213,4 +213,36 @@ function M.assemble_tail(content)
   return table.concat(ordered, '\n\n')
 end
 
+-- Everything a card needs from a transcript, cached by (path, mtime): the read,
+-- the timestamp scan, the meta line, the timeline, and the recent tail. An
+-- unchanged session is served from cache after a single cheap fs_stat, so it is
+-- never re-read or re-scanned. cb(bundle) or cb(nil) on failure; bundle has
+-- { mtime, last, meta_line, timeline, tail } (the last four nil if the
+-- transcript carries no timestamps).
+local bundle_cache = {}
+
+function M.load(path, cb)
+  vim.uv.fs_stat(path, function(serr, st)
+    if serr or not st then return vim.schedule(function() cb(nil) end) end
+    local mtime = st.mtime.sec
+    local hit = bundle_cache[path]
+    if hit and hit.mtime == mtime then
+      return vim.schedule(function() cb(hit) end)
+    end
+    M.read(path, function(rstat, content) -- M.read schedules this on the main loop
+      if not rstat then return cb(nil) end
+      local stats = M.stats(content)
+      local bundle = { mtime = rstat.mtime.sec }
+      if stats then
+        bundle.last = stats.last
+        bundle.meta_line = M.meta_line(stats)
+        bundle.timeline = M.timeline_str(stats)
+        bundle.tail = M.assemble_tail(content)
+      end
+      bundle_cache[path] = bundle
+      cb(bundle)
+    end)
+  end)
+end
+
 return M
