@@ -88,6 +88,19 @@ local function parse_fields(text)
   return fields
 end
 
+-- `claude` must be on PATH to produce summaries. Check once and warn once; the
+-- deterministic card fields (age, cwd, status) render regardless.
+local warned = false
+local function have_claude()
+  if vim.fn.executable('claude') == 1 then return true end
+  if not warned then
+    warned = true
+    vim.notify('aaag: `claude` not found on PATH -- summaries unavailable',
+      vim.log.levels.WARN)
+  end
+  return false
+end
+
 -- Spawn one `claude` summary call. `resume_sid` non-nil selects method A (fork
 -- of that session); nil selects method B (stateless). on_done(fields|nil).
 local function run(prompt, cwd, resume_sid, on_done)
@@ -111,6 +124,7 @@ end
 --   { session = <discovery entry>, tail = <string>, timeline = <string>,
 --     mtime = <number> }
 function M.request(opts, on_update)
+  if not have_claude() then return end
   local sid = opts.session.sid
   local cached = cache[sid]
   if cached and cached.mtime == opts.mtime then
