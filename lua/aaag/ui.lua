@@ -420,6 +420,22 @@ local function seed_folds()
   end
 end
 
+-- Float geometry from the current editor size (shared by open and resize).
+local function win_geometry()
+  local w = math.max(40, math.floor(vim.o.columns * config.opts.width_frac))
+  local h = math.max(8, math.floor(vim.o.lines * config.opts.height_frac))
+  return {
+    relative = 'editor',
+    width = w,
+    height = h,
+    row = math.floor((vim.o.lines - h) / 2),
+    col = math.floor((vim.o.columns - w) / 2),
+    border = 'rounded',
+    title = ' aaag — agents at a glance ',
+    title_pos = 'center',
+  }
+end
+
 function M.open(cards)
   state.cards = cards
   seed_folds()
@@ -433,22 +449,23 @@ function M.open(cards)
   vim.bo[state.buf].filetype = 'aaag'
   vim.bo[state.buf].bufhidden = 'wipe'
 
-  local width = math.max(40, math.floor(vim.o.columns * config.opts.width_frac))
-  local height = math.max(8, math.floor(vim.o.lines * config.opts.height_frac))
-  state.win = vim.api.nvim_open_win(state.buf, true, {
-    relative = 'editor',
-    width = width,
-    height = height,
-    row = math.floor((vim.o.lines - height) / 2),
-    col = math.floor((vim.o.columns - width) / 2),
-    style = 'minimal',
-    border = 'rounded',
-    title = ' aaag — agents at a glance ',
-    title_pos = 'center',
-  })
+  local cfg = win_geometry()
+  cfg.style = 'minimal' -- 'style' is an open-only field, not valid for set_config
+  state.win = vim.api.nvim_open_win(state.buf, true, cfg)
   vim.wo[state.win].wrap = false
   vim.wo[state.win].cursorline = false
   set_keymaps()
+
+  -- Re-fit the float and recompute the column count when the editor is resized.
+  vim.api.nvim_create_autocmd('VimResized', {
+    group = vim.api.nvim_create_augroup('aaag_win', { clear = true }),
+    callback = function()
+      if not M.is_open() then return end
+      pcall(vim.api.nvim_win_set_config, state.win, win_geometry())
+      redraw()
+    end,
+  })
+
   redraw()
 end
 
