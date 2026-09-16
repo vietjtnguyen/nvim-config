@@ -268,7 +268,8 @@ local function paint_selection()
   local rect = state.current and state.rects[state.current]
   if not rect then return end
   for _, ln in ipairs(rect.lines) do
-    vim.api.nvim_buf_add_highlight(state.buf, ns_sel, 'AaagSelect', ln.line - 1, ln.c0, ln.c1)
+    pcall(vim.api.nvim_buf_set_extmark, state.buf, ns_sel, ln.line - 1, ln.c0,
+      { end_col = ln.c1, hl_group = 'AaagSelect' })
   end
 end
 
@@ -297,7 +298,8 @@ local function redraw()
   vim.bo[state.buf].modifiable = false
   vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
   for _, h in ipairs(hls) do
-    pcall(vim.api.nvim_buf_add_highlight, state.buf, ns, h.hl, h.line - 1, h.c0, h.c1)
+    pcall(vim.api.nvim_buf_set_extmark, state.buf, ns, h.line - 1, h.c0,
+      { end_col = h.c1, hl_group = h.hl })
   end
   -- Until the user picks a card, keep the selection on the top-left (highest-
   -- priority after sort) so it tracks what most needs attention as data lands.
