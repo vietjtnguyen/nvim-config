@@ -160,28 +160,6 @@ function M.toggle()
   if ui.is_open() then ui.close() else M.open() end
 end
 
--- Plain multi-line rendering of one card, for the telescope previewer.
-function M.card_text(card)
-  local out = { card.name .. '  [' .. (card.attention or '?') .. ']', card.cwd }
-  if card.meta_line then out[#out + 1] = card.meta_line end
-  local map = {
-    { 'thread', 'Thread' }, { 'now', 'Now' },
-    { 'last', 'Last from me' }, { 'state', 'State' }, { 'arc', 'Arc' },
-  }
-  for _, f in ipairs(map) do
-    if card.fields[f[1]] then out[#out + 1] = f[2] .. ': ' .. card.fields[f[1]] end
-  end
-  return out
-end
-
--- Telescope picker: a scannable one-line-per-session list with the full card in
--- the preview -- the complement to the dashboard (find-and-jump vs see-all).
-function M.telescope()
-  populate()
-  for _, card in ipairs(M._cards) do load_card(card) end
-  require('aaag.telescope').picker(sorted(), M.card_text)
-end
-
 -- Inert <Plug> mappings for the global actions, so users can bind their own keys
 -- to a stable name (mirrors cwdtabs' convention). Defined unconditionally;
 -- set_default_keymaps wires the built-in bindings through them.
@@ -191,13 +169,10 @@ local function set_plug_mappings()
   map('n', '<Plug>(aaag-open)', M.open, { desc = 'aaag: open dashboard' })
   map('n', '<Plug>(aaag-refresh)', M.refresh_full,
     { desc = 'aaag: force-refresh all summaries' })
-  map('n', '<Plug>(aaag-picker)', M.telescope, { desc = 'aaag: telescope picker' })
 end
 
--- Only the dashboard toggle is bound by default: 'gA' shadows no built-in. The
--- picker is left to :AaagPicker so we don't sit on the 'ga' prefix (built-in
--- "print char value") waiting for a second key. Wired through <Plug> so the rhs
--- expands (remap = true).
+-- Only the dashboard toggle is bound by default: 'gA' shadows no built-in. Wired
+-- through <Plug> so the rhs expands (remap = true).
 local function set_default_keymaps()
   vim.keymap.set('n', 'gA', '<Plug>(aaag-toggle)',
     { remap = true, desc = 'aaag: toggle agents-at-a-glance dashboard' })
@@ -208,7 +183,6 @@ local function set_commands()
   cmd('Aaag', M.open, { desc = 'aaag: open the sessions dashboard' })
   cmd('AaagToggle', M.toggle, { desc = 'aaag: toggle the sessions dashboard' })
   cmd('AaagRefresh', M.refresh_full, { desc = 'aaag: force-refresh summaries' })
-  cmd('AaagPicker', M.telescope, { desc = 'aaag: telescope session picker' })
 end
 
 function M.setup(opts)

@@ -142,7 +142,6 @@ Global <Plug> mappings (bind your own keys with |:map| and remap):
 	<Plug>(aaag-toggle)	Toggle the dashboard.	*aaag-<Plug>*
 	<Plug>(aaag-open)	Open the dashboard.
 	<Plug>(aaag-refresh)	Force-refresh all summaries.
-	<Plug>(aaag-picker)	Open the telescope picker.
 
 Example: >lua
 	vim.keymap.set('n', '<leader>a', '<Plug>(aaag-toggle)')
@@ -161,7 +160,6 @@ stays visible until each new field lands, so the card does not blank.
 :AaagToggle		Toggle the dashboard.		*:AaagToggle*
 :AaagRefresh		Force-refresh all summaries	*:AaagRefresh*
 			(drops the whole cache first).
-:AaagPicker		Open the telescope picker.	*:AaagPicker*
 
 ==============================================================================
 6. Lua API						*aaag-api*
@@ -180,9 +178,6 @@ require('aaag').refresh()		*aaag.refresh()*
 
 require('aaag').refresh_full()		*aaag.refresh_full()*
 			As refresh(), but drops the summary cache first.
-
-require('aaag').telescope()		*aaag.telescope()*
-			Open the telescope picker over the same sessions.
 
 ==============================================================================
 7. Highlights						*aaag-highlights*
@@ -210,7 +205,6 @@ The attention groups also colour each card's gutter bar.
 - Linux for the process-based liveness check and terminal-tab jump, which read
   /proc.  Off Linux, liveness falls back to a signal-0 probe and the jump to
   "ps"; both are best-effort.
-- telescope.nvim is optional; only |:AaagPicker| needs it.
 
 Run |:checkhealth| aaag to verify these.		*aaag-health*
 
