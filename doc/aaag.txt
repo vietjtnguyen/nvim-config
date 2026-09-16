@@ -144,6 +144,7 @@ Global <Plug> mappings (bind your own keys with |:map| and remap):
 	<Plug>(aaag-toggle)	Toggle the dashboard.	*aaag-<Plug>*
 	<Plug>(aaag-open)	Open the dashboard.
 	<Plug>(aaag-refresh)	Force-refresh all summaries.
+	<Plug>(aaag-browse)	Browse all conversations.
 
 Example: >lua
 	vim.keymap.set('n', '<leader>a', '<Plug>(aaag-toggle)')
@@ -162,6 +163,23 @@ stays visible until each new field lands, so the card does not blank.
 :AaagToggle		Toggle the dashboard.		*:AaagToggle*
 :AaagRefresh		Force-refresh all summaries	*:AaagRefresh*
 			(drops the whole cache first).
+:AaagBrowse		Browse all conversations.	*:AaagBrowse*
+			See |aaag-browse|.
+
+						*aaag-browse*
+:AaagBrowse opens a telescope picker of every Claude Code conversation on disk
+-- live and dormant -- newest first, with cheap metadata only (no model calls).
+The preview shows the work dir, branch, and first/last messages.  Selecting a
+conversation:
+
+	<CR>	If it is live, jump to the terminal tab running it; otherwise
+		resume it in a new terminal tab, |:tcd|'d to its work dir so
+		cwdtabs groups it, with "claude --resume" typed and run.
+	<C-t>	Resume in a new tab (even if live).
+	<C-v>	Resume in a vertical split.
+	<C-x>	Resume in a horizontal split.
+
+Requires telescope.nvim.
 
 ==============================================================================
 6. Lua API						*aaag-api*
@@ -180,6 +198,9 @@ require('aaag').refresh()		*aaag.refresh()*
 
 require('aaag').refresh_full()		*aaag.refresh_full()*
 			As refresh(), but drops the summary cache first.
+
+require('aaag').browse()		*aaag.browse()*
+			Open the all-conversations picker.  See |aaag-browse|.
 
 ==============================================================================
 7. Highlights						*aaag-highlights*
@@ -207,6 +228,7 @@ The attention groups also colour each card's gutter bar.
 - Linux for the process-based liveness check and terminal-tab jump, which read
   /proc.  Off Linux, liveness falls back to a signal-0 probe and the jump to
   "ps"; both are best-effort.
+- telescope.nvim is optional; only |:AaagBrowse| needs it.
 
 Run |:checkhealth| aaag to verify these.		*aaag-health*
 

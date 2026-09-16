@@ -37,6 +37,12 @@ function M.check()
   else
     h.info('no /proc (non-Linux) -- liveness uses signal-0, jump uses `ps`')
   end
+
+  if pcall(require, 'telescope') then
+    h.ok('telescope.nvim present -- :AaagBrowse available')
+  else
+    h.info('telescope.nvim not found -- :AaagBrowse disabled (dashboard still works)')
+  end
 end
 
 return M

@@ -166,6 +166,13 @@ function M.toggle()
   if ui.is_open() then ui.close() else M.open() end
 end
 
+-- Telescope picker over *all* conversations on disk (live and dormant), for
+-- resuming a medium-term one you set aside. Cheap metadata only; separate from
+-- the live dashboard on purpose.
+function M.browse()
+  require('aaag.picker').browse()
+end
+
 -- Inert <Plug> mappings for the global actions, so users can bind their own keys
 -- to a stable name (mirrors cwdtabs' convention). Defined unconditionally;
 -- set_default_keymaps wires the built-in bindings through them.
@@ -175,6 +182,8 @@ local function set_plug_mappings()
   map('n', '<Plug>(aaag-open)', M.open, { desc = 'aaag: open dashboard' })
   map('n', '<Plug>(aaag-refresh)', M.refresh_full,
     { desc = 'aaag: force-refresh all summaries' })
+  map('n', '<Plug>(aaag-browse)', M.browse,
+    { desc = 'aaag: browse all conversations' })
 end
 
 -- Only the dashboard toggle is bound by default: 'gA' shadows no built-in. Wired
@@ -189,6 +198,8 @@ local function set_commands()
   cmd('Aaag', M.open, { desc = 'aaag: open the sessions dashboard' })
   cmd('AaagToggle', M.toggle, { desc = 'aaag: toggle the sessions dashboard' })
   cmd('AaagRefresh', M.refresh_full, { desc = 'aaag: force-refresh summaries' })
+  cmd('AaagBrowse', M.browse,
+    { desc = 'aaag: browse all conversations (telescope)' })
 end
 
 function M.setup(opts)

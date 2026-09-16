@@ -58,6 +58,91 @@ local function transcript_path(cwd, sid)
   return hits[1]
 end
 
+-- Map of live interactive sessions, sid -> pid, for cross-referencing the full
+-- conversation list against what's currently running.
+function M.live_map()
+  local dir = config.opts.claude_dir .. '/sessions'
+  local map = {}
+  for _, path in ipairs(vim.fn.glob(dir .. '/*.json', false, true)) do
+    local pid = tonumber(vim.fn.fnamemodify(path, ':t:r'))
+    if pid and is_live_claude(pid) then
+      local meta = read_json(path)
+      if meta and meta.sessionId
+          and (meta.kind == nil or meta.kind == 'interactive') then
+        map[meta.sessionId] = pid
+      end
+    end
+  end
+  return map
+end
+
+-- Cheap metadata from a bounded head read (no full read): the recorded cwd, the
+-- generated title (the "aiTitle" record, grabbed by pattern -- concise and
+-- search-friendly), and the first user message. The head is large enough to
+-- clear a leading oversized record (e.g. a big "queue-operation"); individual
+-- records above a size cap are skipped when decoding for the first message so a
+-- huge pasted record doesn't cost a full parse. Returns { cwd, title, first }.
+local function head_meta(path)
+  local f = io.open(path, 'r')
+  if not f then return {} end
+  local head = f:read(131072) or ''
+  f:close()
+  local meta = {
+    cwd = head:match('"cwd":"([^"]*)"'),
+    title = head:match('"aiTitle":"([^"]*)"'),
+  }
+  for line in head:gmatch('[^\n]+') do
+    if #line <= 32768 then
+      local ok, d = pcall(vim.json.decode, line)
+      if ok and type(d) == 'table' and d.type == 'user'
+          and type(d.message) == 'table' then
+        local c, text = d.message.content, nil
+        if type(c) == 'string' then
+          text = c
+        elseif type(c) == 'table' then
+          for _, b in ipairs(c) do
+            if type(b) == 'table' and b.type == 'text' then text = b.text break end
+          end
+        end
+        if text and text ~= '' then
+          meta.first = (text:gsub('%s+', ' ')):sub(1, 200)
+          break
+        end
+      end
+    end
+  end
+  return meta
+end
+
+-- Public: every conversation transcript on disk, newest-first, with only cheap
+-- metadata -- no model calls, no full reads. Subagent transcripts (under a
+-- ".../subagents/" directory) are excluded; they aren't conversations you'd
+-- resume. Each entry: { sid, path, cwd, title, first, mtime, live, pid }
+function M.all()
+  local live = M.live_map()
+  local out = {}
+  local proj = config.opts.claude_dir .. '/projects'
+  for _, path in ipairs(vim.fn.glob(proj .. '/**/*.jsonl', false, true)) do
+    local st = vim.uv.fs_stat(path)
+    if st and not path:find('/subagents/', 1, true) then
+      local sid = vim.fn.fnamemodify(path, ':t:r')
+      local meta = head_meta(path)
+      out[#out + 1] = {
+        sid = sid,
+        path = path,
+        cwd = meta.cwd,
+        title = meta.title,
+        first = meta.first,
+        mtime = st.mtime.sec,
+        live = live[sid] ~= nil,
+        pid = live[sid],
+      }
+    end
+  end
+  table.sort(out, function(a, b) return a.mtime > b.mtime end)
+  return out
+end
+
 -- Public: the live sessions right now, as plain data, in no guaranteed order
 -- (the caller sorts for display). Each entry:
 --   { pid, sid, cwd, name, status, transcript }
