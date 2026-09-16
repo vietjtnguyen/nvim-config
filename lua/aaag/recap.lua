@@ -132,7 +132,7 @@ function M.request(opts, on_update)
   local sid = opts.session.sid
   local cached = cache[sid]
   if cached and cached.mtime == opts.mtime then
-    return on_update(vim.deepcopy(cached.fields))
+    return on_update(vim.deepcopy(cached.fields), true)
   end
 
   generation = generation + 1
@@ -142,25 +142,33 @@ function M.request(opts, on_update)
   local body = opts.tail .. '\n\n--- ACTIVITY TIMELINE (my records) ---\n'
     .. opts.timeline
 
+  -- The model calls to make. Idle sessions get A (identity, forked) unless a
+  -- prior identity survives this mtime, plus B (live state); busy sessions get a
+  -- single stateless B_FULL (a fork of a mid-turn session would ramble).
+  local jobs = {}
+  if opts.session.status == 'idle' then
+    if not fields.thread then
+      jobs[#jobs + 1] = { A_IDENTITY, opts.session.cwd, sid }
+    end
+    jobs[#jobs + 1] = { B_STATE .. body, opts.session.cwd, nil }
+  else
+    jobs[#jobs + 1] = { B_FULL .. body, opts.session.cwd, nil }
+  end
+
+  -- on_update(fields, done): done is true on the final job's callback, so the UI
+  -- can show a spinner until every call has returned.
+  local pending = #jobs
   local function merge(new)
     -- Drop the callback if a newer request for this session has superseded us.
     local cur = cache[sid]
     if not cur or cur.token ~= token then return end
     if new then fields = vim.tbl_extend('force', fields, new) end
     cache[sid] = { mtime = opts.mtime, token = token, fields = fields }
-    on_update(vim.deepcopy(fields))
+    pending = pending - 1
+    on_update(vim.deepcopy(fields), pending == 0)
   end
 
-  if opts.session.status == 'idle' then
-    -- A for identity (only reuse a prior identity if we have one this mtime).
-    if not fields.thread then
-      run(A_IDENTITY, opts.session.cwd, sid, merge)
-    end
-    run(B_STATE .. body, opts.session.cwd, nil, merge)
-  else
-    -- Busy / mid-turn: one stateless call for everything (fork would ramble).
-    run(B_FULL .. body, opts.session.cwd, nil, merge)
-  end
+  for _, j in ipairs(jobs) do run(j[1], j[2], j[3], merge) end
 end
 
 -- Drop all cached summaries so the next request recomputes from scratch.

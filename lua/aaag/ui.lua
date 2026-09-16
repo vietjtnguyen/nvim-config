@@ -36,6 +36,11 @@ local state = {
 local GUTTER = '│'
 local GLEN = #GUTTER
 
+-- Braille spinner shown on a card while it is loading or being refreshed.
+local SPINNER = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
+local spin_idx = 1
+local spin_timer = nil
+
 local GLYPH = {
   blocked = { '▲', 'AaagBlocked' },
   busy    = { '●', 'AaagBusy' },
@@ -144,10 +149,21 @@ local function make_cell(card, cw)
   -- what it is.
   local head = string.format('%s %s %s %s  [%s]  %s',
     GUTTER, arrow, g[1], card.name, card.attention, age)
+  local spin_c0
+  if card.refreshing or card.loading then
+    head = head .. '  '
+    spin_c0 = #head
+    head = head .. SPINNER[spin_idx]
+  end
   if folded and card.fields.thread then head = head .. '  — ' .. card.fields.thread end
-  local hln = push(trunc(head, cw), ghl)
+  local text = trunc(head, cw)
+  local hln = push(text, ghl)
   local ncol = #(GUTTER .. ' ' .. arrow .. ' ' .. g[1] .. ' ')
   cspans[#cspans + 1] = { line = hln, c0 = ncol, c1 = ncol + #card.name, hl = 'AaagName' }
+  if spin_c0 and spin_c0 + #SPINNER[spin_idx] <= #text then
+    cspans[#cspans + 1] =
+      { line = hln, c0 = spin_c0, c1 = spin_c0 + #SPINNER[spin_idx], hl = 'AaagBusy' }
+  end
 
   if not folded then
     local cwd = card.cwd:gsub('^' .. vim.pesc(vim.env.HOME or ''), '~')
@@ -315,6 +331,35 @@ local function card_by_sid(sid)
   for _, c in ipairs(state.cards) do if c.sid == sid then return c end end
 end
 
+-- Spinner animation: run a repeating timer only while some card is loading or
+-- refreshing, advancing the frame and redrawing; stop it as soon as nothing is
+-- active (or the dashboard closes).
+local function any_active()
+  for _, c in ipairs(state.cards) do
+    if c.refreshing or c.loading then return true end
+  end
+  return false
+end
+
+local function stop_spinner()
+  if spin_timer then
+    vim.fn.timer_stop(spin_timer)
+    spin_timer = nil
+  end
+end
+
+local function tick()
+  if not M.is_open() or not any_active() then return stop_spinner() end
+  spin_idx = spin_idx % #SPINNER + 1
+  redraw()
+end
+
+local function ensure_spinner()
+  if not spin_timer and M.is_open() and any_active() then
+    spin_timer = vim.fn.timer_start(90, tick, { ['repeat'] = -1 })
+  end
+end
+
 -- Grid move by (dr, dc). Columns clamp to the last populated cell in a row so a
 -- partial final row is still reachable.
 local function move(dr, dc)
@@ -336,6 +381,7 @@ local function move(dr, dc)
 end
 
 function M.close()
+  stop_spinner()
   if state.win and vim.api.nvim_win_is_valid(state.win) then
     vim.api.nvim_win_close(state.win, true)
   end
@@ -459,6 +505,7 @@ function M.open(cards)
   vim.wo[state.win].wrap = false
   vim.wo[state.win].cursorline = false
   set_keymaps()
+  ensure_spinner()
 
   -- Re-fit the float and recompute the column count when the editor is resized.
   vim.api.nvim_create_autocmd('VimResized', {
@@ -478,6 +525,7 @@ function M.update(cards)
   state.cards = cards
   seed_folds()
   redraw()
+  ensure_spinner()
 end
 
 return M

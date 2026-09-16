@@ -118,7 +118,9 @@ line with the thread trailing.  Fold a card with <Tab> to trade detail for
 density.
 
 Summaries fill in progressively: the deterministic fields appear immediately,
-the prose as the model calls return.  Idle sessions use a fork of the session
+the prose as the model calls return.  A braille spinner on a card's header marks
+it as loading or refreshing; a manual refresh (|aaag-r|) keeps the old prose
+visible while it re-prompts.  Idle sessions use a fork of the session
 for the (cached) identity plus a stateless call for the live state; busy
 sessions use a single stateless call.  Results are cached by transcript
 modification time, so an unchanged session is not re-summarized.

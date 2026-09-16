@@ -94,11 +94,12 @@ local function load_card(card)
       tail = bundle.tail,
       timeline = bundle.timeline,
       mtime = bundle.mtime,
-    }, function(fields)
+    }, function(fields, done)
       -- Merge so a re-prompt (which starts recap's accumulator fresh) keeps the
       -- old prose visible until each new field lands, rather than blanking.
       card.fields = vim.tbl_extend('force', card.fields or {}, fields)
       card.loading = false
+      if done then card.refreshing = false end
       recompute_attention(card)
       ui.update(sorted())
     end)
@@ -136,6 +137,7 @@ end
 -- unchanged sessions cost nothing; only advanced transcripts re-summarize.
 function M.refresh()
   populate()
+  for _, card in ipairs(M._cards) do card.refreshing = true end
   ui.update(sorted())
   for _, card in ipairs(M._cards) do load_card(card) end
 end
@@ -151,7 +153,12 @@ end
 function M.refresh_card(sid)
   recap.invalidate(sid)
   for _, card in ipairs(M._cards) do
-    if card.sid == sid then load_card(card); return end
+    if card.sid == sid then
+      card.refreshing = true -- spinner; existing prose stays until new lands
+      ui.update(sorted())
+      load_card(card)
+      return
+    end
   end
 end
 
