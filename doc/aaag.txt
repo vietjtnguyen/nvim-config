@@ -117,7 +117,8 @@ width_frac, height_frac ~	*aaag-width_frac* *aaag-height_frac*
 
 tail_msgs, tail_chars ~		*aaag-tail_msgs* *aaag-tail_chars*
 	Type: number.  Defaults: 50, 35000.  Bound the recent-turns tail fed
-	to the stateless summary call.
+	to the stateless summary call: at most tail_msgs turns and tail_chars
+	characters, whichever limit is hit first.
 
 ==============================================================================
 3. The dashboard					*aaag-dashboard*

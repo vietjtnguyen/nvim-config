@@ -177,7 +177,10 @@ end
 
 -- Assemble the recent-turns tail for the stateless (B) summary. We decode only
 -- the last slice of lines (not the whole file), collect user/assistant turns
--- newest-first until the char cap, then restore chronological order.
+-- newest-first until either cap (tail_msgs turns or tail_chars characters) is
+-- hit, then restore chronological order. All sizes are counted in characters,
+-- not bytes, so a cap can't fall mid-UTF-8-sequence.
+local SEP = '\n\n'
 function M.assemble_tail(content)
   local max_msgs = config.opts.tail_msgs
   local char_cap = config.opts.tail_chars
@@ -202,23 +205,30 @@ function M.assemble_tail(content)
         and type(d.message) == 'table' then
       local text = vim.trim(message_text(d.message))
       if text ~= '' then
-        if #text > block_cap then text = text:sub(1, block_cap) .. ' …[truncated]' end
+        if vim.fn.strchars(text) > block_cap then
+          text = vim.fn.strcharpart(text, 0, block_cap) .. ' …[truncated]'
+        end
         turns[#turns + 1] = { role = d.message.role or d.type, text = text }
       end
     end
   end
 
   local chosen, total = {}, 0
+  local sep_chars = vim.fn.strchars(SEP)
   for i = #turns, 1, -1 do
+    if #chosen >= max_msgs then break end
     local line = turns[i].role:upper() .. ': ' .. turns[i].text
-    if total + #line > char_cap then break end
+    -- Count the joining separator (all but the first entry gets one) so the
+    -- assembled string actually honours char_cap.
+    local add = vim.fn.strchars(line) + (#chosen > 0 and sep_chars or 0)
+    if total + add > char_cap then break end
     chosen[#chosen + 1] = line
-    total = total + #line
+    total = total + add
   end
   -- chosen is newest-first; reverse to chronological.
   local ordered = {}
   for i = #chosen, 1, -1 do ordered[#ordered + 1] = chosen[i] end
-  return table.concat(ordered, '\n\n')
+  return table.concat(ordered, SEP)
 end
 
 -- Everything a card needs from a transcript, cached by (path, mtime): the read,
