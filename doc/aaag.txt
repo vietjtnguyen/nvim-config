@@ -138,14 +138,13 @@ A card, expanded, shows: working directory; a deterministic age line; and the
 summary fields Thread, Now, Last from me, State, and Arc.  Collapsed, it is a
 single header line with a snippet trailing.  Fold with |aaag-keys|.
 
-Summaries fill in progressively: deterministic fields appear immediately, prose
-as the model calls return, with a braille spinner while loading or refreshing.
-Live cards and dormant cards last active within the last 24 hours are summarized;
-older dormant cards stay deterministic (work dir, title, last-active) until you
-`r` them.  Idle sessions use a fork for the (cached) identity plus a stateless call
-for live state; busy and dormant sessions use one stateless call.  The summary
-subprocesses are ephemeral (no transcript is written), and results are cached by
-transcript modification time, so an unchanged session is not re-summarized.
+Summaries fill in progressively: deterministic fields show immediately, prose as
+it is generated, with a braille spinner while a card is loading or refreshing.
+Live cards, and dormant cards last active within the last 24 hours, are
+summarized automatically; older dormant cards stay deterministic (work dir,
+title, last-active) until you press `r` on them.  Results are cached, so
+reopening an unchanged conversation is instant and generating a summary leaves
+no extra conversation behind.
 
 ==============================================================================
 4. Mappings						*aaag-mappings*
@@ -166,9 +165,11 @@ Inside the dashboard (buffer-local):		*aaag-keys*
 	r		Load (or re-prompt) the selected card's summary and
 			expand it. |aaag-r|
 	R		Refresh all cards (mtime-cached).
-	D		Delete the selected dormant conversation's transcript
-			from disk, after a confirmation.  Live conversations
-			are refused.
+	D		Delete the selected dormant conversation's transcript.
+			Confirms first (shows the full record and file path;
+			Y confirms, Ctrl-C / Esc / N cancel), then keeps the
+			selection on a neighbouring card.  Live sessions are
+			refused.
 	q, <Esc>	Close the dashboard.
 
 Global <Plug> mappings (bind your own keys with |:map| and remap):
@@ -246,6 +247,7 @@ The attention groups also colour each card's gutter bar.
 	AaagIdle	Idle.			(link: Function)
 	AaagStale	Idle beyond stale_days.	(link: Comment)
 	AaagClosed	Closed / safe to drop.	(link: Comment)
+	AaagDormant	Dormant (not-live).	(link: Directory)
 	AaagName	Session name.		(link: Title)
 	AaagLabel	Field labels.		(link: Comment)
 	AaagMeta	CWD and age line.	(link: NonText)
