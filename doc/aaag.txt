@@ -251,6 +251,7 @@ The attention groups also colour each card's gutter bar.
 	AaagName	Session name.		(link: Title)
 	AaagLabel	Field labels.		(link: Comment)
 	AaagMeta	CWD and age line.	(link: NonText)
+	AaagError	Summary-failed note.	(link: DiagnosticWarn)
 	AaagSelect	Selected card.		(link: CursorLine)
 	AaagBorder	Column rule.		(link: WinSeparator)
 

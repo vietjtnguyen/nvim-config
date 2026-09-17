@@ -66,12 +66,31 @@ Arc: ONE sentence on the session's temporal shape, using ONLY the timeline below
 --- TRANSCRIPT TAIL ---
 ]]
 
--- sid -> { mtime, token, fields } ; fields = { thread, now, last, state, arc }.
+-- sid -> {
+--   mtime, token, fields = { thread, now, last, state, arc },
+--   pending,      -- jobs not yet reported (0 => done)
+--   done,         -- true once every job has reported
+--   failed, total,-- how many of `total` jobs failed, for the retry note
+--   callbacks,    -- on_update fns to notify as fields land (dup loads coalesce)
+-- }
+-- An entry is written BEFORE its jobs run, so the states must be explicit: a
+-- request for the same mtime while `done` is false attaches as another callback
+-- instead of spawning a second subprocess or being handed a false "done". A
+-- finished entry (done) is served from cache and NEVER auto-retried -- a failure
+-- carries a note telling the user to press `r`, which invalidates and re-prompts.
 -- token is a per-request generation stamp: a late callback from a superseded
--- request (transcript advanced, or a forced refresh) carries an old token and
--- is dropped, so it can't overwrite fresher fields.
+-- request (transcript advanced, or a forced refresh) carries an old token and is
+-- dropped, so it can't overwrite fresher fields.
 local cache = {}
 local generation = 0
+
+-- The "some jobs failed" note shown on a card until `r` re-prompts it. nil when
+-- every job succeeded.
+local function fail_note(entry)
+  if entry.failed == 0 then return nil end
+  return string.format('summary failed (%d/%d) -- press r to retry',
+    entry.failed, entry.total)
+end
 
 -- Map a model output line "Label: value" (tolerating **bold** and case) onto a
 -- card field key. Unknown labels are ignored.
@@ -134,22 +153,38 @@ local function run(prompt, cwd, resume_sid, on_done)
   end)
 end
 
--- Public: compute a session's card fields, calling on_update(fields) possibly
--- more than once as A and B land (so the UI can fill in progressively). opts:
+-- Public: compute a session's card fields, calling on_update(fields, done, note)
+-- possibly more than once as A and B land (so the UI can fill in progressively).
+-- `done` is true once every job has reported; `note` is nil unless some job
+-- failed. On failure or a missing CLI, on_update still fires with done=true so
+-- the caller can settle its spinner (fields may be nil). opts:
 --   { session = <discovery entry>, tail = <string>, timeline = <string>,
 --     mtime = <number> }
 function M.request(opts, on_update)
-  if not have_claude() then return end
+  if not have_claude() then
+    return on_update(nil, true, 'claude not on PATH -- summaries unavailable')
+  end
   local sid = opts.session.sid
   local cached = cache[sid]
   if cached and cached.mtime == opts.mtime then
-    return on_update(vim.deepcopy(cached.fields), true)
+    -- Same transcript. A finished entry is served as-is (a failure is not
+    -- retried automatically); an in-flight one gets this caller added as another
+    -- waiter, so a duplicate load coalesces onto the running jobs.
+    if cached.done then
+      return on_update(vim.deepcopy(cached.fields), true, fail_note(cached))
+    end
+    cached.callbacks[#cached.callbacks + 1] = on_update
+    return on_update(vim.deepcopy(cached.fields), false)
   end
 
   generation = generation + 1
   local token = generation
-  local fields = (cached and cached.fields) or {}
-  cache[sid] = { mtime = opts.mtime, token = token, fields = fields }
+  local entry = {
+    mtime = opts.mtime, token = token,
+    fields = (cached and cached.fields) or {},
+    failed = 0, done = false, callbacks = { on_update },
+  }
+  cache[sid] = entry
   local body = opts.tail .. '\n\n--- ACTIVITY TIMELINE (my records) ---\n'
     .. opts.timeline
 
@@ -158,25 +193,34 @@ function M.request(opts, on_update)
   -- single stateless B_FULL (a fork of a mid-turn session would ramble).
   local jobs = {}
   if opts.session.status == 'idle' then
-    if not fields.thread then
+    if not entry.fields.thread then
       jobs[#jobs + 1] = { A_IDENTITY, opts.session.cwd, sid }
     end
     jobs[#jobs + 1] = { B_STATE .. body, opts.session.cwd, nil }
   else
     jobs[#jobs + 1] = { B_FULL .. body, opts.session.cwd, nil }
   end
+  entry.total = #jobs
+  entry.pending = #jobs
 
-  -- on_update(fields, done): done is true on the final job's callback, so the UI
-  -- can show a spinner until every call has returned.
-  local pending = #jobs
+  -- A job reports merge(fields) on success or merge(nil) on failure. A late
+  -- callback from a superseded request is dropped. Once every job has reported,
+  -- the entry is done: its fields (whatever landed) are kept and never
+  -- auto-recomputed at this mtime; a non-zero `failed` count surfaces as a note.
   local function merge(new)
-    -- Drop the callback if a newer request for this session has superseded us.
     local cur = cache[sid]
     if not cur or cur.token ~= token then return end
-    if new then fields = vim.tbl_extend('force', fields, new) end
-    cache[sid] = { mtime = opts.mtime, token = token, fields = fields }
-    pending = pending - 1
-    on_update(vim.deepcopy(fields), pending == 0)
+    if new then
+      cur.fields = vim.tbl_extend('force', cur.fields, new)
+    else
+      cur.failed = cur.failed + 1
+    end
+    cur.pending = cur.pending - 1
+    local done = cur.pending == 0
+    if done then cur.done = true end
+    local snapshot = vim.deepcopy(cur.fields)
+    local note = done and fail_note(cur) or nil
+    for _, cb in ipairs(cur.callbacks) do cb(snapshot, done, note) end
   end
 
   for _, j in ipairs(jobs) do run(j[1], j[2], j[3], merge) end

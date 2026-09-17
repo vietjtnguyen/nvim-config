@@ -81,6 +81,7 @@ function M.set_highlights()
   hl('AaagName', { link = 'Title', default = true })
   hl('AaagLabel', { link = 'Comment', default = true })
   hl('AaagMeta', { link = 'NonText', default = true })
+  hl('AaagError', { link = 'DiagnosticWarn', default = true })
   hl('AaagSelect', { link = 'CursorLine', default = true })
   hl('AaagBorder', { link = 'WinSeparator', default = true })
 end
@@ -217,6 +218,11 @@ local function make_cell(card, cw)
     if card.meta_line then
       push_wrapped(card.meta_line, bar .. ' ', bar .. '   ', ghl, function(ln)
         cspans[#cspans + 1] = { line = ln, c0 = GLEN, c1 = -1, hl = 'AaagMeta' }
+      end)
+    end
+    if card.error then
+      push_wrapped(card.error, bar .. ' ', bar .. '   ', ghl, function(ln)
+        cspans[#cspans + 1] = { line = ln, c0 = GLEN, c1 = -1, hl = 'AaagError' }
       end)
     end
     for _, f in ipairs(FIELDS) do

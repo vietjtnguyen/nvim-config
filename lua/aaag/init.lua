@@ -118,40 +118,57 @@ local function should_summarize(card, force)
   return M._show_dormant and summarize_recent(card.last_event or card.mtime)
 end
 
+-- Clear a card's spinner flags. Every async path in load_card must reach this,
+-- or the braille spinner spins forever (a failed read, a timestamp-less
+-- transcript, a missing CLI, or a subprocess failure all used to strand it).
+local function settle(card)
+  card.loading = false
+  card.refreshing = false
+end
+
 -- Load a card. Live and recent-dormant cards get the full treatment: read the
 -- transcript (mtime-cached), fill the age/meta line, and request a summary.
 -- Older dormant cards stay cheap -- last-active from mtime, title/first from the
 -- head read done during discovery -- until `r` forces a summary.
 local function load_card(card, force)
   if should_summarize(card, force) then
-    if not card.transcript then return end
+    if not card.transcript then settle(card); return end
     card.loading = true -- spin until the summary is computed (covers reveal/reuse)
+    -- Per-card generation: a later load_card for the same card bumps this, so
+    -- this call's async callbacks below drop out. Without it, two loads whose
+    -- reads finish in reverse order let the older one overwrite newer data.
+    card.gen = (card.gen or 0) + 1
+    local gen = card.gen
     transcript.load(card.transcript, function(bundle)
-      if not bundle then return end
+      if card.gen ~= gen then return end
+      if not bundle then settle(card); recompute_attention(card); render(); return end
       if bundle.last then
         card.last_epoch = bundle.last
         card.last_ago = transcript.ago(bundle.last)
-        card.meta_line = bundle.meta_line
+        -- Format per load (not from cache): meta_line embeds a relative age.
+        card.meta_line = transcript.meta_line(bundle.stats)
       end
       recompute_attention(card)
       render()
-      if not bundle.last then return end
+      if not bundle.last then settle(card); render(); return end
       recap.request({
         session = card,
         tail = bundle.tail,
         timeline = bundle.timeline,
         mtime = bundle.mtime,
-      }, function(fields, done)
+      }, function(fields, done, err)
+        if card.gen ~= gen then return end
         -- Merge so a re-prompt (recap's accumulator starts fresh) keeps the old
-        -- prose visible until each new field lands, rather than blanking.
-        card.fields = vim.tbl_extend('force', card.fields or {}, fields)
+        -- prose visible until each new field lands, rather than blanking. fields
+        -- is nil when the request couldn't run (e.g. no CLI).
+        if fields then
+          card.fields = vim.tbl_extend('force', card.fields or {}, fields)
+        end
+        card.error = err -- a failure note ("press r to retry"), or nil to clear
         -- Keep the spinner until ALL calls for this card finish (an idle card
         -- makes two): clearing on the first callback left a spinner gap while
         -- the second was still in flight.
-        if done then
-          card.loading = false
-          card.refreshing = false
-        end
+        if done then settle(card) end
         recompute_attention(card)
         render()
       end)
@@ -162,8 +179,8 @@ local function load_card(card, force)
     card.last_epoch = le
     card.last_ago = transcript.ago(le)
     card.meta_line = 'last active ' .. transcript.ago(le)
-    card.loading = false
-    card.refreshing = false -- clear any spinner flag; nothing async is coming
+    card.error = nil
+    settle(card) -- nothing async is coming
     recompute_attention(card)
     render()
   end

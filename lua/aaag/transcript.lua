@@ -222,11 +222,12 @@ function M.assemble_tail(content)
 end
 
 -- Everything a card needs from a transcript, cached by (path, mtime): the read,
--- the timestamp scan, the meta line, the timeline, and the recent tail. An
--- unchanged session is served from cache after a single cheap fs_stat, so it is
--- never re-read or re-scanned. cb(bundle) or cb(nil) on failure; bundle has
--- { mtime, last, meta_line, timeline, tail } (the last four nil if the
--- transcript carries no timestamps).
+-- the timestamp scan, the timeline, and the recent tail. An unchanged session is
+-- served from cache after a single cheap fs_stat, so it is never re-read or
+-- re-scanned. cb(bundle) or cb(nil) on failure; bundle has
+-- { mtime, last, stats, timeline, tail } (the last four nil if the transcript
+-- carries no timestamps). The meta line is NOT cached -- it embeds a relative
+-- age ("3d ago") that would freeze; callers format it from `stats` per render.
 local bundle_cache = {}
 
 function M.load(path, cb)
@@ -243,7 +244,7 @@ function M.load(path, cb)
       local bundle = { mtime = rstat.mtime.sec }
       if stats then
         bundle.last = stats.last
-        bundle.meta_line = M.meta_line(stats)
+        bundle.stats = stats
         bundle.timeline = M.timeline_str(stats)
         bundle.tail = M.assemble_tail(content)
       end
