@@ -261,6 +261,19 @@ function M.delete_card(sid)
   local card = M._cards[idx]
   if card.active then return end -- never delete a running session's transcript
 
+  -- card.active is a snapshot from the last populate(); the session may have been
+  -- resumed elsewhere since. Re-check liveness against fresh metadata right
+  -- before unlinking so we don't delete a transcript that is now in use. (An
+  -- external process can still race this window -- an inherent limit of deleting
+  -- a file another program may reopen.)
+  if discovery.live_map()[sid] then
+    vim.notify('aaag: ' .. (card.name or sid)
+      .. ' is now live -- not deleting', vim.log.levels.WARN)
+    card.active = true
+    render()
+    return
+  end
+
   local proj = config.opts.claude_dir .. '/projects/'
   local path = card.transcript
   if not (path and path:sub(1, #proj) == proj and path:match('%.jsonl$')) then
