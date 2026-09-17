@@ -19,6 +19,7 @@ local M = {}
 M.on_refresh = nil          -- refresh all cards (mtime-cached)
 M.on_refresh_card = nil     -- re-prompt one card by sid
 M.on_toggle_dormant = nil   -- reveal/hide the dormant section
+M.on_delete_card = nil      -- delete one dormant conversation by sid
 
 local ns = vim.api.nvim_create_namespace('aaag')
 local ns_sel = vim.api.nvim_create_namespace('aaag_sel')
@@ -316,7 +317,7 @@ local function build(width)
   if config.opts.show_help then
     local help = trunc(' h/j/k/l move · zo/zc/za expand/collapse/toggle · '
       .. '<Tab> show/hide dormant · <CR> open · C-x/v/t split · '
-      .. 'r refresh · R refresh all · q close', width)
+      .. 'r refresh · R refresh all · D delete · q close', width)
     lines[#lines + 1] = help
     hls[#hls + 1] = { line = #lines, c0 = 0, c1 = #help, hl = 'AaagMeta' }
     lines[#lines + 1] = ''
@@ -534,6 +535,38 @@ local function set_keymaps()
     if M.on_refresh_card then M.on_refresh_card(state.current) end
   end)
   map('R', function() if M.on_refresh then M.on_refresh() end end)
+  map('D', function()
+    local card = state.current and card_by_sid(state.current)
+    if not card then return end
+    if card.active then
+      vim.notify('aaag: refusing to delete a live conversation', vim.log.levels.WARN)
+      return
+    end
+    -- Full detail so it's clear exactly what's being removed.
+    local info = {
+      'Permanently delete this conversation and its transcript?',
+      '',
+      'Name:  ' .. (card.name or '?'),
+      'State: ' .. (card.attention or '?')
+        .. (card.last_ago and ('  ·  last active ' .. card.last_ago) or ''),
+      'CWD:   ' .. (card.cwd or '?'),
+      'SID:   ' .. card.sid,
+      'File:  ' .. (card.transcript or '?'),
+    }
+    local any_field = false
+    for _, f in ipairs(FIELDS) do
+      local v = card.fields[f[1]]
+      if v and v ~= '' then
+        info[#info + 1] = f[2] .. ' ' .. v
+        any_field = true
+      end
+    end
+    if not any_field and card.first then info[#info + 1] = 'First: ' .. card.first end
+    -- &Yes -> Y confirms; N/Esc/Ctrl-C all cancel (pcall swallows the interrupt
+    -- so it exits the prompt gracefully instead of erroring).
+    local ok, choice = pcall(vim.fn.confirm, table.concat(info, '\n'), '&Yes\n&No', 2)
+    if ok and choice == 1 and M.on_delete_card then M.on_delete_card(card.sid) end
+  end)
 
   -- Keep the selection in sync when the cursor is moved by anything other than
   -- our grid keys (mouse, gg, search).

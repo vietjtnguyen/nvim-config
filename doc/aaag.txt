@@ -166,6 +166,9 @@ Inside the dashboard (buffer-local):		*aaag-keys*
 	r		Load (or re-prompt) the selected card's summary and
 			expand it. |aaag-r|
 	R		Refresh all cards (mtime-cached).
+	D		Delete the selected dormant conversation's transcript
+			from disk, after a confirmation.  Live conversations
+			are refused.
 	q, <Esc>	Close the dashboard.
 
 Global <Plug> mappings (bind your own keys with |:map| and remap):

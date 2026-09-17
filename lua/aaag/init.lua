@@ -244,6 +244,33 @@ function M.refresh_card(sid)
   end
 end
 
+-- Delete a dormant conversation's transcript from disk and drop its card. Guards
+-- against deleting a live session or any path outside claude_dir/projects.
+function M.delete_card(sid)
+  local idx
+  for i, c in ipairs(M._cards) do if c.sid == sid then idx = i break end end
+  if not idx then return end
+  local card = M._cards[idx]
+  if card.active then return end -- never delete a running session's transcript
+
+  local proj = config.opts.claude_dir .. '/projects/'
+  local path = card.transcript
+  if not (path and path:sub(1, #proj) == proj and path:match('%.jsonl$')) then
+    vim.notify('aaag: refusing to delete unexpected path: ' .. tostring(path),
+      vim.log.levels.ERROR)
+    return
+  end
+  local ok, err = os.remove(path)
+  if not ok then
+    vim.notify('aaag: delete failed: ' .. tostring(err), vim.log.levels.ERROR)
+    return
+  end
+  recap.invalidate(sid)
+  table.remove(M._cards, idx)
+  render()
+  vim.notify('aaag: deleted ' .. card.name)
+end
+
 function M.toggle()
   if ui.is_open() then ui.close() else M.open() end
 end
@@ -293,6 +320,7 @@ function M.setup(opts)
   ui.on_refresh = M.refresh
   ui.on_refresh_card = M.refresh_card
   ui.on_toggle_dormant = M.toggle_dormant
+  ui.on_delete_card = M.delete_card
   set_commands()
   set_plug_mappings()
   if config.opts.default_keymaps then set_default_keymaps() end
