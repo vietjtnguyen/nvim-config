@@ -260,9 +260,9 @@ The attention groups also colour each card's gutter bar.
 - Neovim 0.10+ (uses |vim.system()| and |vim.uv|).
 - The Claude Code CLI ("claude") on your PATH, for summaries.  Without it the
   deterministic card fields still render.
-- Linux for the process-based liveness check and terminal-tab jump, which read
-  /proc.  Off Linux, liveness falls back to a signal-0 probe and the jump to
-  "ps"; both are best-effort.
+- Linux.  Liveness (is this PID still a running "claude"?) and the terminal-tab
+  jump both read /proc/<pid>; without /proc no session is detected as live, so
+  aaag is Linux-only.
 - telescope.nvim is optional; only |:AaagBrowse| needs it.
 
 Run |:checkhealth| aaag to verify these.		*aaag-health*

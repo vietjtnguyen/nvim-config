@@ -35,7 +35,8 @@ function M.check()
   if vim.uv.fs_stat('/proc') then
     h.ok('/proc present -- liveness and terminal-jump use it')
   else
-    h.info('no /proc (non-Linux) -- liveness uses signal-0, jump uses `ps`')
+    h.error('no /proc -- aaag is Linux-only',
+      { 'liveness and the terminal-tab jump both read /proc/<pid>' })
   end
 
   if pcall(require, 'telescope') then

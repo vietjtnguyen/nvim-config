@@ -11,10 +11,12 @@ local config = require('aaag.config')
 
 local M = {}
 
--- Is `pid` a live claude process? On Linux we read /proc/<pid>/comm: it both
--- proves liveness and confirms identity, so a recycled PID belonging to some
--- other program is rejected. Off Linux (no /proc) we fall back to signal-0,
--- which proves liveness but not identity -- acceptable, recycled PIDs are rare.
+-- Is `pid` a live claude process? We read /proc/<pid>/comm: it both proves
+-- liveness and confirms identity, so a recycled PID belonging to some other
+-- program is rejected. aaag is Linux-only (see :checkhealth aaag) -- a signal-0
+-- probe was tempting off Linux, but libuv returns ESRCH as a value rather than
+-- throwing, so pcall reports a dead PID as live; without /proc we simply cannot
+-- verify, so we report not-live rather than trusting a stale metadata file.
 local function comm_of(pid)
   local f = io.open('/proc/' .. pid .. '/comm', 'r')
   if not f then return nil end
@@ -24,14 +26,10 @@ local function comm_of(pid)
 end
 
 local function is_live_claude(pid)
-  if vim.uv.fs_stat('/proc') then
-    local c = comm_of(pid)
-    -- comm is truncated to 15 bytes by the kernel; "claude" fits, but match
-    -- loosely in case the exec name ever changes.
-    return c ~= nil and (c == 'claude' or c:match('claude'))
-  end
-  local ok = pcall(vim.uv.kill, pid, 0)
-  return ok
+  local c = comm_of(pid)
+  -- comm is truncated to 15 bytes by the kernel; "claude" fits, but match
+  -- loosely in case the exec name ever changes.
+  return c ~= nil and (c == 'claude' or c:match('claude'))
 end
 
 -- Read and decode one small JSON file, or nil on any error.
