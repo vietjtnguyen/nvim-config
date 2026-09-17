@@ -70,6 +70,11 @@ dormant_fold_default ~
 	Type: string.  Default: "collapsed".
 	Initial fold state of dormant cards when the section is revealed.
 
+						*aaag-show_help*
+show_help ~
+	Type: boolean.  Default: false.
+	Show a one-line keymap cheat-sheet at the top of the dashboard float.
+
 						*aaag-claude_dir*
 claude_dir ~
 	Type: string.  Default: stdpath-independent ~/.claude.
@@ -152,6 +157,8 @@ Inside the dashboard (buffer-local):		*aaag-keys*
 	<CR>		Live card: jump to the terminal tab hosting it.
 			Dormant card: resume it in a new tab, |:tcd|'d to its
 			work dir, with "claude --resume" typed and run.
+	<C-x> <C-v> <C-t>  Resume the selected card in a split / vertical
+			split / new tab (always resumes, even a live card).
 	za		Fold/unfold the selected card.
 	zo, zc		Open / close the selected card.
 	zM, zR		Fold all / unfold all.

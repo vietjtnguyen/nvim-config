@@ -313,6 +313,15 @@ local function build(width)
     end
   end
 
+  if config.opts.show_help then
+    local help = trunc(' h/j/k/l move · zo/zc/za expand/collapse/toggle · '
+      .. '<Tab> show/hide dormant · <CR> open · C-x/v/t split · '
+      .. 'r refresh · R refresh all · q close', width)
+    lines[#lines + 1] = help
+    hls[#hls + 1] = { line = #lines, c0 = 0, c1 = #help, hl = 'AaagMeta' }
+    lines[#lines + 1] = ''
+  end
+
   lay(cells_of(active_cards))
   if #dormant_cards > 0 then
     if state.show_dormant then
@@ -478,6 +487,17 @@ local function set_keymaps()
       jump.resume('tab', card.cwd, card.sid)
     end
   end)
+  -- Telescope-style open keys: resume the card in a split/vsplit/new tab. These
+  -- always resume (even a live card starts a fresh copy), matching the picker.
+  local function open_in(mode)
+    local card = state.current and card_by_sid(state.current)
+    if not card then return end
+    M.close()
+    jump.resume(mode, card.cwd, card.sid)
+  end
+  map('<C-x>', function() open_in('split') end)
+  map('<C-v>', function() open_in('vsplit') end)
+  map('<C-t>', function() open_in('tab') end)
   local function toggle()
     if state.current then
       state.collapsed[state.current] = not state.collapsed[state.current]

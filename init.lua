@@ -158,6 +158,7 @@ end
 -- dashboard; :AaagRefresh re-summarizes.
 require('aaag').setup({
   default_keymaps = true,
+  show_help = true,
 })
 
 --------------------------------------------------------------------------------

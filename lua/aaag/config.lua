@@ -8,6 +8,9 @@ M.defaults = {
   -- Install the default <leader>-style keymaps (see init.set_default_keymaps).
   default_keymaps = false,
 
+  -- Show a one-line keymap cheat-sheet at the top of the dashboard float.
+  show_help = false,
+
   -- Initial fold state when the dashboard opens:
   --   'expanded'  every card shows all fields
   --   'collapsed' every card shows only its one-line header
