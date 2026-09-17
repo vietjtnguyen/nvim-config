@@ -40,7 +40,8 @@ local state = {
 }
 
 local GUTTER = '│'
-local GLEN = #GUTTER
+local GLEN = #GUTTER -- byte length (offsets/highlights are byte-based)
+local GLEN_DISP = vim.fn.strdisplaywidth(GUTTER) -- display cells (1) for layout math
 
 -- Braille spinner shown on a card while it is loading or being refreshed.
 local SPINNER = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
@@ -84,26 +85,54 @@ function M.set_highlights()
   hl('AaagBorder', { link = 'WinSeparator', default = true })
 end
 
+-- Break a single token wider than `budget` display cells into chunks that each
+-- fit, on character boundaries. A generated path/URL/hash has no spaces to wrap
+-- at, so without this it would overflow the fixed-width cell and shove later
+-- grid columns off the right edge (window wrap is off).
+local function hard_split(word, budget)
+  local out, rest = {}, word
+  while vim.fn.strdisplaywidth(rest) > budget do
+    local n = vim.fn.strchars(rest)
+    while n > 1 and vim.fn.strdisplaywidth(vim.fn.strcharpart(rest, 0, n)) > budget do
+      n = n - 1
+    end
+    out[#out + 1] = vim.fn.strcharpart(rest, 0, n)
+    rest = vim.fn.strcharpart(rest, n)
+  end
+  out[#out + 1] = rest
+  return out
+end
+
 -- Greedy word-wrap `content` to display `width`, prefixing the first line with
--- `first_prefix` and the rest with `cont_prefix`. An over-wide single word is
--- left to overflow (rare -- long paths are shortened before they get here).
+-- `first_prefix` and the rest with `cont_prefix`. A word wider than the line
+-- budget is hard-split so every emitted line fits `width`.
 local function wrap(content, first_prefix, cont_prefix, width)
-  local out, line, prefix = {}, first_prefix, first_prefix
-  local col, started = vim.fn.strdisplaywidth(prefix), false
+  local out, prefix, line = {}, first_prefix, nil
+  local col = 0
+  -- Split over-wide tokens by the continuation budget (the smaller of the two
+  -- prefixes' budgets), so a chunk placed on either a first or continuation line
+  -- still fits.
+  local split_budget = math.max(1, width - vim.fn.strdisplaywidth(cont_prefix))
   for word in content:gmatch('%S+') do
     local w = vim.fn.strdisplaywidth(word)
-    if not started then
-      line = prefix .. word; col = col + w; started = true
-    elseif col + 1 + w <= width then
+    if line and col + 1 + w <= width then
       line = line .. ' ' .. word; col = col + 1 + w
-    else
-      out[#out + 1] = line
+    elseif not line and w <= width - vim.fn.strdisplaywidth(prefix) then
+      line = prefix .. word; col = vim.fn.strdisplaywidth(prefix) + w
+    elseif w <= split_budget then
+      if line then out[#out + 1] = line end
       prefix = cont_prefix
-      line = prefix .. word
-      col = vim.fn.strdisplaywidth(prefix) + w
+      line = prefix .. word; col = vim.fn.strdisplaywidth(prefix) + w
+    else
+      if line then out[#out + 1] = line; line = nil end
+      for _, chunk in ipairs(hard_split(word, split_budget)) do
+        out[#out + 1] = prefix .. chunk
+        prefix = cont_prefix
+      end
     end
   end
-  out[#out + 1] = line
+  if line then out[#out + 1] = line end
+  if #out == 0 then out[#out + 1] = first_prefix end
   return out
 end
 
@@ -135,6 +164,9 @@ local function make_cell(card, cw)
   local bar = card.active and BAR_ACTIVE or BAR_DORMANT
   local clines, cspans = {}, {}
   local function push(text, ghl)
+    -- Guarantee the cell fits its width both ways: truncate an over-wide line
+    -- (safety net -- wrap() already fits), pad a short one to keep the grid square.
+    if vim.fn.strdisplaywidth(text) > cw then text = trunc(text, cw) end
     local dw = vim.fn.strdisplaywidth(text)
     if dw < cw then text = text .. string.rep(' ', cw - dw) end
     clines[#clines + 1] = text
@@ -243,11 +275,20 @@ local function build(width)
   end
 
   local n, cw = layout(width)
-  -- Column gap: a centred vertical rule (' │ ') when enabled and multi-column,
-  -- else plain spaces. bar_off is the byte offset of the rule within the gap.
+  -- Column gap: a vertical rule centred in a `col_sep`-cell gap when enabled and
+  -- multi-column, else plain spaces. bar_off is the rule's byte offset within the
+  -- gap (leading spaces are one byte each, so it equals the left-space count).
   local rule = config.opts.column_rule and n > 1
-  local sep = rule and ' │ ' or string.rep(' ', config.opts.col_sep)
-  local bar_off = rule and 1 or nil
+  local sep, bar_off
+  if rule then
+    local left = math.floor((config.opts.col_sep - GLEN_DISP) / 2)
+    if left < 0 then left = 0 end
+    local right = math.max(0, config.opts.col_sep - GLEN_DISP - left)
+    sep = string.rep(' ', left) .. GUTTER .. string.rep(' ', right)
+    bar_off = left
+  else
+    sep = string.rep(' ', config.opts.col_sep)
+  end
 
   -- Split cards into live and dormant (state.cards is already sorted live-first,
   -- then dormant by recency). Dormant cells are only built when the section is
