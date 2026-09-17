@@ -22,8 +22,9 @@ local M = {}
 local A_IDENTITY = [[
 Produce the durable IDENTITY of THIS session -- the part that stays true across
 the whole conversation, for a dashboard that caches this and refreshes it rarely.
-Use the full conversation context. Do NOT use any tools. Terse, no preamble, no
-markdown headers, no closing remarks. One field, one to two sentences:
+Use the full conversation context. Do NOT use any tools. Terse plain prose --
+no Markdown formatting (no **bold**, backticks, headings, or bullets), no
+preamble, no closing remarks. One field, one to two sentences:
 
 Thread: what this session is fundamentally about and what success looks like.
 ]]
@@ -31,8 +32,9 @@ Thread: what this session is fundamentally about and what success looks like.
 local B_STATE = [[
 Below is the recent transcript tail of a Claude Code session (older turns and
 tool outputs elided) followed by an activity timeline. Produce the CURRENT STATE
-for a dashboard. Be terse: each field on its own line, ~16 words max, no preamble,
-no markdown headers, no closing remarks.
+for a dashboard. Be terse: each field on its own line, ~16 words max, plain prose
+-- no Markdown formatting (no **bold**, backticks, headings, or bullets), no
+preamble, no closing remarks.
 
 Now: the specific sub-task in focus right now.
 Last from me: paraphrase of my most recent message (the last USER turn).
@@ -49,7 +51,8 @@ local B_FULL = [[
 Below is the recent transcript tail of a Claude Code session (older turns and
 tool outputs elided) followed by an activity timeline. Produce a status card so I
 can recontextualize the session at a glance. Be terse: each field on its own
-line, ~16 words max, no preamble, no markdown headers, no closing remarks.
+line, ~16 words max, plain prose -- no Markdown formatting (no **bold**,
+backticks, headings, or bullets), no preamble, no closing remarks.
 
 Thread: one to two sentences -- what this session is fundamentally about and
 what success looks like.
@@ -85,7 +88,9 @@ local function parse_fields(text)
     if label then
       local key = LABELS[vim.trim(label:lower())]
       if key then
-        fields[key] = vim.trim((val:gsub('%*+%s*$', '')))
+        -- Strip any stray Markdown the model still emits (bold, backticks).
+        local v = val:gsub('%*%*', ''):gsub('`', '')
+        fields[key] = vim.trim(v)
       end
     end
   end
