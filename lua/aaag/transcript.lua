@@ -10,23 +10,27 @@ local config = require('aaag.config')
 
 local M = {}
 
--- Seconds that local time is ahead of UTC. Transcript timestamps are UTC
--- ("...Z"); os.time() interprets a broken-down table as *local*, so we add this
--- offset to put a UTC wall-clock onto the real epoch line. Recomputed per stats
--- run (not cached at module load) so a daylight-saving transition during a
--- long-lived session doesn't skew age math by an hour.
-local function utc_offset()
-  return os.difftime(os.time(), os.time(os.date('!*t')))
+-- Days from the Unix epoch (1970-01-01) for a Gregorian Y/M/D, by Howard
+-- Hinnant's days_from_civil algorithm. Transcript timestamps are UTC ("...Z"),
+-- so we build the epoch arithmetically rather than via os.time(), which reads a
+-- broken-down table in the *local* zone -- wrong for a UTC wall clock, and wrong
+-- by a DST-dependent amount that a single "current" offset can't correct for a
+-- timestamp from another season.
+local function days_from_civil(y, m, d)
+  y = (m <= 2) and (y - 1) or y
+  local era = math.floor((y >= 0 and y or y - 399) / 400)
+  local yoe = y - era * 400
+  local doy = math.floor((153 * ((m > 2) and (m - 3) or (m + 9)) + 2) / 5) + d - 1
+  local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
 end
 
-local function iso_to_epoch(iso, offset)
+local function iso_to_epoch(iso)
   local y, mo, d, h, mi, s =
     iso:match('(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)')
   if not y then return nil end
-  return os.time({
-    year = tonumber(y), month = tonumber(mo), day = tonumber(d),
-    hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
-  }) + offset
+  return days_from_civil(tonumber(y), tonumber(mo), tonumber(d)) * 86400
+    + tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s)
 end
 
 -- Human "3d ago" / "20m ago" from an epoch, relative to now.
@@ -43,7 +47,7 @@ M.ago = ago
 
 -- Public: convert one ISO-8601 UTC timestamp string to an epoch (or nil).
 function M.iso_epoch(iso)
-  return iso and iso_to_epoch(iso, utc_offset())
+  return iso and iso_to_epoch(iso)
 end
 
 -- Read a transcript file asynchronously. Calls cb(stat, content) on success or
@@ -73,10 +77,9 @@ end
 -- timestamps. Fields: first, last (epoch), count, span_days, by_day (ordered
 -- {date,count}), gap ({hours, ends_iso} or nil for the longest quiet stretch).
 function M.stats(content)
-  local offset = utc_offset()
   local epochs = {}
   for iso in content:gmatch('"timestamp":"([^"]+)"') do
-    local e = iso_to_epoch(iso, offset)
+    local e = iso_to_epoch(iso)
     if e then epochs[#epochs + 1] = e end
   end
   if #epochs == 0 then return nil end
