@@ -125,6 +125,7 @@ end
 local function load_card(card, force)
   if should_summarize(card, force) then
     if not card.transcript then return end
+    card.loading = true -- spin until the summary is computed (covers reveal/reuse)
     transcript.load(card.transcript, function(bundle)
       if not bundle then return end
       if bundle.last then
@@ -144,8 +145,13 @@ local function load_card(card, force)
         -- Merge so a re-prompt (recap's accumulator starts fresh) keeps the old
         -- prose visible until each new field lands, rather than blanking.
         card.fields = vim.tbl_extend('force', card.fields or {}, fields)
-        card.loading = false
-        if done then card.refreshing = false end
+        -- Keep the spinner until ALL calls for this card finish (an idle card
+        -- makes two): clearing on the first callback left a spinner gap while
+        -- the second was still in flight.
+        if done then
+          card.loading = false
+          card.refreshing = false
+        end
         recompute_attention(card)
         render()
       end)
@@ -187,7 +193,9 @@ local function populate()
     card.name = (l and l.name) or c.title or vim.fs.basename(c.cwd or '')
     card.last_epoch = c.last
     card.last_ago = transcript.ago(c.last)
-    if card.loading == nil then card.loading = should_summarize(card) end
+    -- Set every populate so a reused card re-spins when it will re-summarize
+    -- (e.g. the active session whose transcript changed since the last open).
+    card.loading = should_summarize(card)
     recompute_attention(card)
     cards[#cards + 1] = card
   end

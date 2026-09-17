@@ -159,24 +159,24 @@ local function make_cell(card, cw)
   -- Header (single line, truncated to fit): bar, fold arrow, glyph, name,
   -- [state], age; when folded, a snippet (thread if summarized, else the first
   -- message) trails so a collapsed card still says what it is.
+  -- The status-glyph slot doubles as the spinner: while loading/refreshing it
+  -- shows the spinner frame instead of the glyph (loading is itself a status),
+  -- always visible near the start and never truncated by a long title. Slot
+  -- width is constant (both are one column), so the name doesn't shift.
+  local spinning = card.refreshing or card.loading
+  local glyph = spinning and SPINNER[spin_idx] or g[1]
   local head = string.format('%s %s %s %s  [%s]  %s',
-    bar, arrow, g[1], card.name, card.attention, age)
-  local spin_c0
-  if card.refreshing or card.loading then
-    head = head .. '  '
-    spin_c0 = #head
-    head = head .. SPINNER[spin_idx]
-  end
+    bar, arrow, glyph, card.name, card.attention, age)
   local snippet = card.fields.thread or card.first
   if folded and snippet then head = head .. '  — ' .. snippet end
   local text = trunc(head, cw)
   local hln = push(text, ghl)
-  local ncol = #(bar .. ' ' .. arrow .. ' ' .. g[1] .. ' ')
-  cspans[#cspans + 1] = { line = hln, c0 = ncol, c1 = ncol + #card.name, hl = 'AaagName' }
-  if spin_c0 and spin_c0 + #SPINNER[spin_idx] <= #text then
-    cspans[#cspans + 1] =
-      { line = hln, c0 = spin_c0, c1 = spin_c0 + #SPINNER[spin_idx], hl = 'AaagBusy' }
+  local gcol = #(bar .. ' ' .. arrow .. ' ')
+  if spinning then
+    cspans[#cspans + 1] = { line = hln, c0 = gcol, c1 = gcol + #glyph, hl = 'AaagBusy' }
   end
+  local ncol = gcol + #glyph + 1
+  cspans[#cspans + 1] = { line = hln, c0 = ncol, c1 = ncol + #card.name, hl = 'AaagName' }
 
   if not folded then
     local cwd = (card.cwd or ''):gsub('^' .. vim.pesc(vim.env.HOME or ''), '~')
