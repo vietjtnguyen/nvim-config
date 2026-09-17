@@ -153,7 +153,7 @@ local function make_cell(card, cw)
   local folded = state.collapsed[card.sid]
   local g = GLYPH[card.attention] or GLYPH.idle
   local ghl = g[2]
-  local arrow = folded and '▸' or '▾'
+  local arrow = folded and '►' or '▼'
   local age = card.last_ago and ('last ' .. card.last_ago) or ''
 
   -- Header (single line, truncated to fit): bar, fold arrow, glyph, name,
