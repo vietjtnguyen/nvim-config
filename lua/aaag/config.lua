@@ -23,8 +23,15 @@ M.defaults = {
   -- model size, so a "simpler" model buys nothing (measured).
   model = 'claude-haiku-4-5-20251001',
 
-  -- A session with no transcript activity for this many days is dimmed as stale.
+  -- A live session with no transcript activity for this many days is marked
+  -- stale (it's still running, just untouched).
   stale_days = 3,
+
+  -- The dashboard can show dormant (not-live) conversations below the live ones,
+  -- but hides them by default -- <Tab> reveals/hides the section. When shown,
+  -- their initial fold state is `dormant_fold_default` ('expanded'|'collapsed').
+  show_dormant = false,
+  dormant_fold_default = 'collapsed',
 
   -- Dashboard float geometry (fraction of the editor) and grid layout. Columns
   -- 'auto' picks a count from the available width and `card_width` (the target

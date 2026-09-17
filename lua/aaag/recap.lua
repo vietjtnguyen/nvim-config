@@ -116,7 +116,10 @@ local function run(prompt, cwd, resume_sid, on_done)
   if resume_sid then
     vim.list_extend(argv, { '--resume', resume_sid, '--fork-session' })
   end
-  vim.system(argv, { cwd = cwd, text = true }, function(res)
+  -- The conversation's work dir may be gone (deleted/moved); spawning with a
+  -- non-existent cwd raises a loud ENOENT, so fall back to inheriting Neovim's.
+  local runcwd = (cwd and vim.fn.isdirectory(cwd) == 1) and cwd or nil
+  vim.system(argv, { cwd = runcwd, text = true }, function(res)
     vim.schedule(function()
       if res.code ~= 0 or not res.stdout or res.stdout == '' then
         return on_done(nil)

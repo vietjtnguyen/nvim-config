@@ -19,34 +19,6 @@ local function homed(path)
   return (path:gsub('^' .. vim.pesc(vim.env.HOME or '\0'), '~'))
 end
 
--- Open a terminal running `claude --resume <sid>` in the conversation's work dir.
--- mode: 'tab' also tcd's the new tab so cwdtabs groups it; 'vsplit'/'split' open
--- in the current tab (windows can't carry their own cwdtabs group). The command
--- is typed into a real shell so you land back at a prompt when claude exits.
-local function open_resume(mode, dir, sid)
-  if not dir or vim.fn.isdirectory(dir) == 0 then
-    vim.notify('aaag: work dir not found (' .. tostring(dir) .. '); opening in $HOME',
-      vim.log.levels.WARN)
-    dir = vim.uv.os_homedir()
-  end
-  if mode == 'vsplit' then
-    vim.cmd('vsplit | enew')
-  elseif mode == 'split' then
-    vim.cmd('split | enew')
-  else
-    vim.cmd('tabnew')
-    pcall(function() vim.cmd.tcd(dir) end)
-  end
-  local chan = vim.fn.jobstart(vim.o.shell, { term = true, cwd = dir })
-  if chan > 0 then
-    -- Small delay so the shell's rc is loaded before we type the command.
-    vim.defer_fn(function()
-      pcall(vim.api.nvim_chan_send, chan, 'claude --resume ' .. sid .. '\r')
-    end, 150)
-  end
-  vim.cmd('startinsert')
-end
-
 -- Cheap preview: read a bounded head and tail (not the whole transcript) to
 -- surface the branch and the first/last user messages.
 local function user_text(msg)
@@ -151,7 +123,7 @@ function M.browse()
           -- Default on a live conversation jumps to its running tab; every other
           -- path resumes it in a fresh terminal.
           if mode == 'default' and c.live and jump.to_pid(c.pid) then return end
-          open_resume(mode == 'default' and 'tab' or mode, c.cwd, c.sid)
+          jump.resume(mode == 'default' and 'tab' or mode, c.cwd, c.sid)
         end
       end
       actions.select_default:replace(act('default'))

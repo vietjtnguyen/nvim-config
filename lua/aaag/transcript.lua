@@ -41,6 +41,11 @@ end
 -- Public form of the relative-time helper, for a card's short header age.
 M.ago = ago
 
+-- Public: convert one ISO-8601 UTC timestamp string to an epoch (or nil).
+function M.iso_epoch(iso)
+  return iso and iso_to_epoch(iso, utc_offset())
+end
+
 -- Read a transcript file asynchronously. Calls cb(stat, content) on success or
 -- cb(nil) on any failure; stat carries mtime/size so callers can cache on it.
 function M.read(path, cb)

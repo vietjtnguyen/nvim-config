@@ -76,17 +76,23 @@ function M.live_map()
   return map
 end
 
--- Cheap metadata from a bounded head read (no full read): the recorded cwd, the
--- generated title (the "aiTitle" record, grabbed by pattern -- concise and
--- search-friendly), and the first user message. The head is large enough to
--- clear a leading oversized record (e.g. a big "queue-operation"); individual
--- records above a size cap are skipped when decoding for the first message so a
--- huge pasted record doesn't cost a full parse. Returns { cwd, title, first }.
-local function head_meta(path)
+-- Cheap metadata without a full read: cwd, the generated title ("aiTitle"), the
+-- first user message (from a bounded head), and `last` -- the epoch of the final
+-- timestamped event (from a bounded tail). We sort/age dormant cards by `last`,
+-- not the file mtime, which resume/metadata writes bump without adding events.
+-- The head is large enough to clear a leading oversized record; individual
+-- records above a size cap are skipped when decoding the first message.
+local function head_meta(path, size)
   local f = io.open(path, 'r')
   if not f then return {} end
   local head = f:read(131072) or ''
+  local tail = head
+  if size and size > #head then
+    f:seek('set', math.max(0, size - 65536))
+    tail = f:read('*a') or ''
+  end
   f:close()
+
   local meta = {
     cwd = head:match('"cwd":"([^"]*)"'),
     title = head:match('"aiTitle":"([^"]*)"'),
@@ -111,6 +117,10 @@ local function head_meta(path)
       end
     end
   end
+
+  local last_iso
+  for iso in tail:gmatch('"timestamp":"([^"]+)"') do last_iso = iso end
+  meta.last = require('aaag.transcript').iso_epoch(last_iso)
   return meta
 end
 
@@ -126,13 +136,14 @@ function M.all()
     local st = vim.uv.fs_stat(path)
     if st and not path:find('/subagents/', 1, true) then
       local sid = vim.fn.fnamemodify(path, ':t:r')
-      local meta = head_meta(path)
+      local meta = head_meta(path, st.size)
       out[#out + 1] = {
         sid = sid,
         path = path,
         cwd = meta.cwd,
         title = meta.title,
         first = meta.first,
+        last = meta.last or st.mtime.sec, -- true last-event time; mtime fallback
         mtime = st.mtime.sec,
         live = live[sid] ~= nil,
         pid = live[sid],

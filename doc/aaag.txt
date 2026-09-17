@@ -54,10 +54,21 @@ default_keymaps ~
 						*aaag-fold_default*
 fold_default ~
 	Type: string.  Default: "expanded".
-	Initial fold state when the dashboard opens:
+	Initial fold state of LIVE cards when the dashboard opens:
 	  "expanded"   every card shows all fields
 	  "collapsed"  every card shows only its header line
 	  "blocked"    collapse all except cards waiting on you
+
+						*aaag-show_dormant*
+show_dormant ~
+	Type: boolean.  Default: false.
+	Whether the dormant (not-live) section starts revealed.  <Tab> toggles
+	it at runtime; see |aaag-dashboard|.
+
+						*aaag-dormant_fold_default*
+dormant_fold_default ~
+	Type: string.  Default: "collapsed".
+	Initial fold state of dormant cards when the section is revealed.
 
 						*aaag-claude_dir*
 claude_dir ~
@@ -106,24 +117,30 @@ tail_msgs, tail_chars ~		*aaag-tail_msgs* *aaag-tail_chars*
 ==============================================================================
 3. The dashboard					*aaag-dashboard*
 
-Cards are laid into a grid, sorted so what needs attention rises to the top:
-blocked (waiting on you) > busy > idle > stale > closed.  Each card has a
-coloured left gutter bar whose colour is its attention state, so the left edge
-reads the state at a glance.
+The dashboard has two sections.  LIVE conversations (a running claude process)
+come first, sorted so what needs attention rises to the top: blocked (waiting on
+you) > busy > idle > stale > closed.  Below a rule come DORMANT conversations
+(on disk, not running), sorted by recency.  The dormant section is hidden by
+default -- a hint line shows how many there are; <Tab> reveals or hides it (and
+|aaag-show_dormant| sets the initial state).
 
-A card, expanded, shows: working directory; a deterministic age line (start,
-event count, active days, and any long quiet gap); and the summary fields
-Thread, Now, Last from me, State, and Arc.  Collapsed, it is a single header
-line with the thread trailing.  Fold a card with <Tab> to trade detail for
-density.
+Each card has a coloured left gutter bar: a solid bar for a live conversation, a
+dashed bar for a dormant one, coloured by state (glyph ▲ blocked, ● busy/idle,
+○ stale/dormant, ✓ closed).  Dormant cards are dimmed; closedness is shown by
+the ✓ glyph, so a live-but-closed card stays bright.
 
-Summaries fill in progressively: the deterministic fields appear immediately,
-the prose as the model calls return.  A braille spinner on a card's header marks
-it as loading or refreshing; a manual refresh (|aaag-r|) keeps the old prose
-visible while it re-prompts.  Idle sessions use a fork of the session
-for the (cached) identity plus a stateless call for the live state; busy
-sessions use a single stateless call.  Results are cached by transcript
-modification time, so an unchanged session is not re-summarized.
+A card, expanded, shows: working directory; a deterministic age line; and the
+summary fields Thread, Now, Last from me, State, and Arc.  Collapsed, it is a
+single header line with a snippet trailing.  Fold with |aaag-keys|.
+
+Summaries fill in progressively: deterministic fields appear immediately, prose
+as the model calls return, with a braille spinner while loading or refreshing.
+Live cards and dormant cards last active within the last 24 hours are summarized;
+older dormant cards stay deterministic (work dir, title, last-active) until you
+`r` them.  Idle sessions use a fork for the (cached) identity plus a stateless call
+for live state; busy and dormant sessions use one stateless call.  The summary
+subprocesses are ephemeral (no transcript is written), and results are cached by
+transcript modification time, so an unchanged session is not re-summarized.
 
 ==============================================================================
 4. Mappings						*aaag-mappings*
@@ -132,10 +149,15 @@ Inside the dashboard (buffer-local):		*aaag-keys*
 
 	h l k j		Move the selection left/right/up/down between cards.
 	<Left> <Right> <Up> <Down>   Same.
-	<CR>		Jump to the terminal tab hosting the selected session.
-	<Tab>, za	Fold/unfold the selected card.
+	<CR>		Live card: jump to the terminal tab hosting it.
+			Dormant card: resume it in a new tab, |:tcd|'d to its
+			work dir, with "claude --resume" typed and run.
+	za		Fold/unfold the selected card.
+	zo, zc		Open / close the selected card.
 	zM, zR		Fold all / unfold all.
-	r		Re-prompt the selected card's summaries. |aaag-r|
+	<Tab>		Reveal / hide the dormant section.
+	r		Load (or re-prompt) the selected card's summary and
+			expand it. |aaag-r|
 	R		Refresh all cards (mtime-cached).
 	q, <Esc>	Close the dashboard.
 
@@ -152,9 +174,10 @@ Example: >lua
 With |aaag-default_keymaps| enabled, gA maps to <Plug>(aaag-toggle).
 
 						*aaag-r*
-r re-prompts only the selected card: it drops that card's cached summary
-and recomputes it (its deterministic fields refresh too).  The old prose
-stays visible until each new field lands, so the card does not blank.
+r loads or re-prompts only the selected card and expands it so the result is
+visible: it drops that card's cached summary and recomputes it (deterministic
+fields refresh too, and an older dormant card is summarized on demand).  The old
+prose stays visible until each new field lands, so the card does not blank.
 
 ==============================================================================
 5. Commands						*aaag-commands*

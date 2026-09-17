@@ -22,6 +22,9 @@ local M = {}
 -- mutate the same card the UI is showing. Derived, never persisted.
 M._cards = {}
 
+-- Whether the dormant section is revealed (hidden by default; <Tab> toggles).
+M._show_dormant = false
+
 -- Display priority: what needs your attention sorts to the top, what's done or
 -- forgotten sinks to the bottom.
 local PRIORITY = {
@@ -46,6 +49,17 @@ local function is_blocked(state_text)
 end
 
 local function recompute_attention(card)
+  -- Dormant (not-live) cards split only into closed vs generic dormant; the
+  -- closed distinction is only known once a summary has been generated.
+  if not card.active then
+    local s = (card.fields.state or ''):lower()
+    if s:find('closed', 1, true) or s:find('write off', 1, true) then
+      card.attention = 'closed'
+    else
+      card.attention = 'dormant'
+    end
+    return
+  end
   local s = (card.fields.state or ''):lower()
   local stale = card.last_epoch
     and (os.time() - card.last_epoch) > config.opts.stale_days * 86400
@@ -64,73 +78,141 @@ local function recompute_attention(card)
   end
 end
 
+-- Live cards first (by attention priority, then recency), then dormant cards by
+-- recency. The UI draws the active/dormant break where card.active flips.
 local function sorted()
-  local copy = vim.list_slice(M._cards, 1, #M._cards)
-  table.sort(copy, function(a, b)
+  local active, dormant = {}, {}
+  for _, c in ipairs(M._cards) do
+    if c.active then active[#active + 1] = c else dormant[#dormant + 1] = c end
+  end
+  table.sort(active, function(a, b)
     local pa = PRIORITY[a.attention] or 3
     local pb = PRIORITY[b.attention] or 3
     if pa ~= pb then return pa < pb end
     return (a.last_epoch or 0) > (b.last_epoch or 0)
   end)
-  return copy
+  table.sort(dormant, function(a, b) return (a.last_epoch or 0) > (b.last_epoch or 0) end)
+  local out = {}
+  for _, c in ipairs(active) do out[#out + 1] = c end
+  for _, c in ipairs(dormant) do out[#out + 1] = c end
+  return out
 end
 
--- Read a card's transcript (async), fill its deterministic fields, then request
--- its summary. Called for each card after discovery.
-local function load_card(card)
-  if not card.transcript then return end
-  transcript.load(card.transcript, function(bundle)
-    if not bundle then return end
-    if bundle.last then
-      card.last_epoch = bundle.last
-      card.last_ago = transcript.ago(bundle.last)
-      card.meta_line = bundle.meta_line
-    end
-    recompute_attention(card)
-    ui.update(sorted())
-    if not bundle.last then return end
-    recap.request({
-      session = card,
-      tail = bundle.tail,
-      timeline = bundle.timeline,
-      mtime = bundle.mtime,
-    }, function(fields, done)
-      -- Merge so a re-prompt (which starts recap's accumulator fresh) keeps the
-      -- old prose visible until each new field lands, rather than blanking.
-      card.fields = vim.tbl_extend('force', card.fields or {}, fields)
-      card.loading = false
-      if done then card.refreshing = false end
+-- Push the current cards to the UI (with the dormant-visibility flag).
+local function render()
+  ui.update(sorted(), M._show_dormant)
+end
+
+-- A dormant conversation is summarized only if it was active within the last 24
+-- hours; older ones stay deterministic (cheap head metadata) until `r`.
+local function summarize_recent(mtime)
+  return mtime ~= nil and (os.time() - mtime) < 86400
+end
+
+-- Live cards always summarize; a dormant card only when the section is revealed
+-- and it was active today/yesterday (or `r` forces it). Keeping it gated on
+-- visibility avoids spawning model calls for a hidden section.
+local function should_summarize(card, force)
+  if force then return true end
+  if card.active then return true end
+  return M._show_dormant and summarize_recent(card.last_event or card.mtime)
+end
+
+-- Load a card. Live and recent-dormant cards get the full treatment: read the
+-- transcript (mtime-cached), fill the age/meta line, and request a summary.
+-- Older dormant cards stay cheap -- last-active from mtime, title/first from the
+-- head read done during discovery -- until `r` forces a summary.
+local function load_card(card, force)
+  if should_summarize(card, force) then
+    if not card.transcript then return end
+    transcript.load(card.transcript, function(bundle)
+      if not bundle then return end
+      if bundle.last then
+        card.last_epoch = bundle.last
+        card.last_ago = transcript.ago(bundle.last)
+        card.meta_line = bundle.meta_line
+      end
       recompute_attention(card)
-      ui.update(sorted())
+      render()
+      if not bundle.last then return end
+      recap.request({
+        session = card,
+        tail = bundle.tail,
+        timeline = bundle.timeline,
+        mtime = bundle.mtime,
+      }, function(fields, done)
+        -- Merge so a re-prompt (recap's accumulator starts fresh) keeps the old
+        -- prose visible until each new field lands, rather than blanking.
+        card.fields = vim.tbl_extend('force', card.fields or {}, fields)
+        card.loading = false
+        if done then card.refreshing = false end
+        recompute_attention(card)
+        render()
+      end)
     end)
-  end)
+  else
+    -- Cheap path: no read, no model. last_event is the true last-activity time.
+    local le = card.last_event or card.mtime
+    card.last_epoch = le
+    card.last_ago = transcript.ago(le)
+    card.meta_line = 'last active ' .. transcript.ago(le)
+    card.loading = false
+    card.refreshing = false -- clear any spinner flag; nothing async is coming
+    recompute_attention(card)
+    render()
+  end
 end
 
--- Rebuild M._cards from the live sessions, reusing existing card objects so
--- their loaded state/fields survive a refresh.
+-- Rebuild M._cards from every conversation on disk (discovery.all), enriched
+-- with live status/name for the ones that are running. Card objects are reused
+-- across refreshes so loaded fields survive.
 local function populate()
   local by_sid = {}
   for _, c in ipairs(M._cards) do by_sid[c.sid] = c end
+  local live = {}
+  for _, s in ipairs(discovery.list()) do live[s.sid] = s end
   local cards = {}
-  for _, s in ipairs(discovery.list()) do
-    local card = by_sid[s.sid]
-      or { sid = s.sid, fields = {}, loading = true, attention = 'loading' }
-    card.pid = s.pid
-    card.name = s.name
-    card.cwd = s.cwd
-    card.status = s.status
-    card.transcript = s.transcript
+  for _, c in ipairs(discovery.all()) do
+    local card = by_sid[c.sid] or { sid = c.sid, fields = {} }
+    local l = live[c.sid]
+    card.active = c.live
+    card.cwd = c.cwd
+    card.title = c.title
+    card.first = c.first
+    card.mtime = c.mtime
+    card.last_event = c.last -- true last-activity time (not file mtime)
+    card.pid = c.pid
+    card.transcript = (l and l.transcript) or c.path
+    card.status = l and l.status or nil
+    card.name = (l and l.name) or c.title or vim.fs.basename(c.cwd or '')
+    card.last_epoch = c.last
+    card.last_ago = transcript.ago(c.last)
+    if card.loading == nil then card.loading = should_summarize(card) end
     recompute_attention(card)
     cards[#cards + 1] = card
   end
   M._cards = cards
 end
 
--- Open the dashboard and (re)load every card.
+-- Open the dashboard and (re)load every card. Dormant starts hidden, so their
+-- load stays cheap until revealed.
 function M.open()
+  M._show_dormant = config.opts.show_dormant
   populate()
-  ui.open(sorted())
+  ui.open(sorted(), M._show_dormant)
   for _, card in ipairs(M._cards) do load_card(card) end
+end
+
+-- Reveal/hide the dormant section (bound to <Tab>). On reveal, (re)load the
+-- dormant cards so recent ones get summarized now rather than at open.
+function M.toggle_dormant()
+  M._show_dormant = not M._show_dormant
+  render()
+  if M._show_dormant then
+    for _, card in ipairs(M._cards) do
+      if not card.active then load_card(card) end
+    end
+  end
 end
 
 -- Refresh in place: re-enumerate and reload. Summaries are mtime-cached, so
@@ -138,7 +220,7 @@ end
 function M.refresh()
   populate()
   for _, card in ipairs(M._cards) do card.refreshing = true end
-  ui.update(sorted())
+  render()
   for _, card in ipairs(M._cards) do load_card(card) end
 end
 
@@ -155,8 +237,8 @@ function M.refresh_card(sid)
   for _, card in ipairs(M._cards) do
     if card.sid == sid then
       card.refreshing = true -- spinner; existing prose stays until new lands
-      ui.update(sorted())
-      load_card(card)
+      render()
+      load_card(card, true) -- force: summarize even an older dormant card
       return
     end
   end
@@ -210,6 +292,7 @@ function M.setup(opts)
     { group = group, callback = ui.set_highlights })
   ui.on_refresh = M.refresh
   ui.on_refresh_card = M.refresh_card
+  ui.on_toggle_dormant = M.toggle_dormant
   set_commands()
   set_plug_mappings()
   if config.opts.default_keymaps then set_default_keymaps() end

@@ -16,8 +16,9 @@ local jump = require('aaag.jump')
 
 local M = {}
 
-M.on_refresh = nil       -- refresh all cards (mtime-cached)
-M.on_refresh_card = nil  -- re-prompt one card by sid
+M.on_refresh = nil          -- refresh all cards (mtime-cached)
+M.on_refresh_card = nil     -- re-prompt one card by sid
+M.on_toggle_dormant = nil   -- reveal/hide the dormant section
 
 local ns = vim.api.nvim_create_namespace('aaag')
 local ns_sel = vim.api.nvim_create_namespace('aaag_sel')
@@ -30,7 +31,11 @@ local state = {
   grid = {},        -- gr -> { gc -> sid }
   current = nil,    -- sid of the selected card
   pinned = false,   -- true once the user has chosen a card (stops auto-select)
-  suppress = false, -- guard so our own cursor moves don't count as user nav
+  set_pos = nil,    -- last cursor position WE set, so we can ignore it in
+                    -- CursorMoved (an API cursor move may not fire CursorMoved,
+                    -- so a boolean guard would leak and swallow the next real
+                    -- move; matching on position is leak-proof)
+  show_dormant = false, -- whether the dormant section is revealed
 }
 
 local GUTTER = '│'
@@ -47,8 +52,12 @@ local GLYPH = {
   idle    = { '●', 'AaagIdle' },
   stale   = { '○', 'AaagStale' },
   closed  = { '✓', 'AaagClosed' },
+  dormant = { '○', 'AaagDormant' },
   loading = { '…', 'AaagStale' },
 }
+-- Left gutter bar: solid for a live conversation, dashed for a dormant one.
+local BAR_ACTIVE = '│'
+local BAR_DORMANT = '╎'
 
 local FIELDS = {
   { 'thread', 'Thread:' },
@@ -66,6 +75,7 @@ function M.set_highlights()
   hl('AaagIdle', { link = 'Function', default = true })
   hl('AaagStale', { link = 'Comment', default = true })
   hl('AaagClosed', { link = 'Comment', default = true })
+  hl('AaagDormant', { link = 'Directory', default = true })
   hl('AaagName', { link = 'Title', default = true })
   hl('AaagLabel', { link = 'Comment', default = true })
   hl('AaagMeta', { link = 'NonText', default = true })
@@ -121,12 +131,13 @@ end
 -- plus cell-relative highlight spans {line, c0, c1, hl}. c1 == -1 means "to end
 -- of this cell line".
 local function make_cell(card, cw)
+  local bar = card.active and BAR_ACTIVE or BAR_DORMANT
   local clines, cspans = {}, {}
   local function push(text, ghl)
     local dw = vim.fn.strdisplaywidth(text)
     if dw < cw then text = text .. string.rep(' ', cw - dw) end
     clines[#clines + 1] = text
-    if ghl and text:sub(1, GLEN) == GUTTER then
+    if ghl and text:sub(1, GLEN) == bar then
       cspans[#cspans + 1] = { line = #clines, c0 = 0, c1 = GLEN, hl = ghl }
     end
     return #clines
@@ -144,21 +155,22 @@ local function make_cell(card, cw)
   local arrow = folded and '▸' or '▾'
   local age = card.last_ago and ('last ' .. card.last_ago) or ''
 
-  -- Header (single line, truncated to fit): gutter, fold arrow, glyph, name,
-  -- [attention], age; when folded, the thread trails so a folded card still says
-  -- what it is.
+  -- Header (single line, truncated to fit): bar, fold arrow, glyph, name,
+  -- [state], age; when folded, a snippet (thread if summarized, else the first
+  -- message) trails so a collapsed card still says what it is.
   local head = string.format('%s %s %s %s  [%s]  %s',
-    GUTTER, arrow, g[1], card.name, card.attention, age)
+    bar, arrow, g[1], card.name, card.attention, age)
   local spin_c0
   if card.refreshing or card.loading then
     head = head .. '  '
     spin_c0 = #head
     head = head .. SPINNER[spin_idx]
   end
-  if folded and card.fields.thread then head = head .. '  — ' .. card.fields.thread end
+  local snippet = card.fields.thread or card.first
+  if folded and snippet then head = head .. '  — ' .. snippet end
   local text = trunc(head, cw)
   local hln = push(text, ghl)
-  local ncol = #(GUTTER .. ' ' .. arrow .. ' ' .. g[1] .. ' ')
+  local ncol = #(bar .. ' ' .. arrow .. ' ' .. g[1] .. ' ')
   cspans[#cspans + 1] = { line = hln, c0 = ncol, c1 = ncol + #card.name, hl = 'AaagName' }
   if spin_c0 and spin_c0 + #SPINNER[spin_idx] <= #text then
     cspans[#cspans + 1] =
@@ -166,11 +178,11 @@ local function make_cell(card, cw)
   end
 
   if not folded then
-    local cwd = card.cwd:gsub('^' .. vim.pesc(vim.env.HOME or ''), '~')
-    local cln = push(GUTTER .. ' ' .. shorten_left(cwd, cw - GLEN - 1), ghl)
+    local cwd = (card.cwd or ''):gsub('^' .. vim.pesc(vim.env.HOME or ''), '~')
+    local cln = push(bar .. ' ' .. shorten_left(cwd, cw - GLEN - 1), ghl)
     cspans[#cspans + 1] = { line = cln, c0 = GLEN, c1 = -1, hl = 'AaagMeta' }
     if card.meta_line then
-      push_wrapped(card.meta_line, GUTTER .. ' ', GUTTER .. '   ', ghl, function(ln)
+      push_wrapped(card.meta_line, bar .. ' ', bar .. '   ', ghl, function(ln)
         cspans[#cspans + 1] = { line = ln, c0 = GLEN, c1 = -1, hl = 'AaagMeta' }
       end)
     end
@@ -178,8 +190,8 @@ local function make_cell(card, cw)
       local val = card.fields[f[1]]
       if not val and card.loading then val = '…' end
       if val and val ~= '' then
-        local first = GUTTER .. ' ' .. f[2] .. string.rep(' ', LABEL_W - #f[2])
-        local cont = GUTTER .. ' ' .. string.rep(' ', LABEL_W)
+        local first = bar .. ' ' .. f[2] .. string.rep(' ', LABEL_W - #f[2])
+        local cont = bar .. ' ' .. string.rep(' ', LABEL_W)
         push_wrapped(val, first, cont, ghl, function(ln)
           cspans[#cspans + 1] =
             { line = ln, c0 = GLEN + 1, c1 = GLEN + 1 + #f[2], hl = 'AaagLabel' }
@@ -188,10 +200,11 @@ local function make_cell(card, cw)
     end
   end
 
-  -- A closed conversation recedes: dim every line's content (after the gutter,
-  -- which is already AaagClosed). Added last, so at equal extmark priority these
-  -- override the per-field colours -- the whole card reads as dimmed.
-  if card.attention == 'closed' then
+  -- A dormant (not-live) conversation recedes: dim every line's content after
+  -- the bar (the bar keeps its dormant/closed colour). Added last so it wins at
+  -- equal extmark priority. Live cards -- including closed ones -- stay bright;
+  -- closedness is shown by the ✓ glyph, not by dimming.
+  if not card.active then
     for i = 1, #clines do
       cspans[#cspans + 1] = { line = i, c0 = GLEN, c1 = -1, hl = 'AaagClosed' }
     end
@@ -218,12 +231,14 @@ local function layout(w)
 end
 
 -- Build all buffer lines + highlight spans for the grid, and (re)populate rects
--- and grid for navigation/selection.
+-- and grid for navigation/selection. Live cards fill the top block, dormant
+-- cards a second block below a labeled rule; grid rows are numbered continuously
+-- across both so h/j/k/l crosses the break.
 local function build(width)
   state.rects, state.grid = {}, {}
   local lines, hls = {}, {}
   if #state.cards == 0 then
-    return { '', '   No live Claude Code sessions.' }, {}
+    return { '', '   No conversations found.' }, {}
   end
 
   local n, cw = layout(width)
@@ -233,57 +248,89 @@ local function build(width)
   local sep = rule and ' │ ' or string.rep(' ', config.opts.col_sep)
   local bar_off = rule and 1 or nil
 
-  -- Pre-render every cell.
-  local cells = {}
+  -- Split cards into live and dormant (state.cards is already sorted live-first,
+  -- then dormant by recency). Dormant cells are only built when the section is
+  -- revealed.
+  local active_cards, dormant_cards = {}, {}
   for _, card in ipairs(state.cards) do
-    local cl, cs = make_cell(card, cw)
-    cells[#cells + 1] = { sid = card.sid, lines = cl, spans = cs }
+    if card.active then active_cards[#active_cards + 1] = card
+    else dormant_cards[#dormant_cards + 1] = card end
+  end
+  local function cells_of(cards)
+    local out = {}
+    for _, card in ipairs(cards) do
+      local cl, cs = make_cell(card, cw)
+      out[#out + 1] = { sid = card.sid, lines = cl, spans = cs }
+    end
+    return out
   end
 
   local gr = 0
-  for i = 1, #cells, n do
-    gr = gr + 1
-    state.grid[gr] = {}
-    local rowh = 0
-    for gc = 1, n do
-      local cell = cells[i + gc - 1]
-      if cell then rowh = math.max(rowh, #cell.lines) end
-    end
-    local base = #lines
-    for r = 1, rowh do
-      local segs, xoff = {}, 0
+  local function lay(cells)
+    for i = 1, #cells, n do
+      gr = gr + 1
+      state.grid[gr] = {}
+      local rowh = 0
       for gc = 1, n do
         local cell = cells[i + gc - 1]
-        local text = (cell and cell.lines[r]) or string.rep(' ', cw)
-        if cell and cell.lines[r] then
-          local rect = state.rects[cell.sid]
-          if not rect then
-            rect = { gr = gr, gc = gc, lines = {} }
-            state.rects[cell.sid] = rect
-            state.grid[gr][gc] = cell.sid
-          end
-          rect.lines[#rect.lines + 1] = { line = base + r, c0 = xoff, c1 = xoff + #text }
-          for _, sp in ipairs(cell.spans) do
-            if sp.line == r then
-              local c1 = (sp.c1 == -1) and (xoff + #text) or (xoff + sp.c1)
-              hls[#hls + 1] = { line = base + r, c0 = xoff + sp.c0, c1 = c1, hl = sp.hl }
+        if cell then rowh = math.max(rowh, #cell.lines) end
+      end
+      local base = #lines
+      for r = 1, rowh do
+        local segs, xoff = {}, 0
+        for gc = 1, n do
+          local cell = cells[i + gc - 1]
+          local text = (cell and cell.lines[r]) or string.rep(' ', cw)
+          if cell and cell.lines[r] then
+            local rect = state.rects[cell.sid]
+            if not rect then
+              rect = { gr = gr, gc = gc, lines = {} }
+              state.rects[cell.sid] = rect
+              state.grid[gr][gc] = cell.sid
+            end
+            rect.lines[#rect.lines + 1] = { line = base + r, c0 = xoff, c1 = xoff + #text }
+            for _, sp in ipairs(cell.spans) do
+              if sp.line == r then
+                local c1 = (sp.c1 == -1) and (xoff + #text) or (xoff + sp.c1)
+                hls[#hls + 1] = { line = base + r, c0 = xoff + sp.c0, c1 = c1, hl = sp.hl }
+              end
             end
           end
-        end
-        segs[#segs + 1] = text
-        xoff = xoff + #text
-        if gc < n then
-          if bar_off then
-            hls[#hls + 1] = { line = base + r, c0 = xoff + bar_off,
-              c1 = xoff + bar_off + GLEN, hl = 'AaagBorder' }
+          segs[#segs + 1] = text
+          xoff = xoff + #text
+          if gc < n then
+            if bar_off then
+              hls[#hls + 1] = { line = base + r, c0 = xoff + bar_off,
+                c1 = xoff + bar_off + GLEN, hl = 'AaagBorder' }
+            end
+            segs[#segs + 1] = sep
+            xoff = xoff + #sep
           end
-          segs[#segs + 1] = sep
-          xoff = xoff + #sep
         end
+        lines[#lines + 1] = table.concat(segs)
       end
-      lines[#lines + 1] = table.concat(segs)
+      lines[#lines + 1] = '' -- blank row between grid rows
     end
-    lines[#lines + 1] = '' -- separator row between grid rows
+  end
+
+  lay(cells_of(active_cards))
+  if #dormant_cards > 0 then
+    if state.show_dormant then
+      if #active_cards > 0 then
+        local label = '── recent '
+        label = label .. string.rep('─', math.max(0, width - vim.fn.strdisplaywidth(label)))
+        lines[#lines + 1] = label
+        hls[#hls + 1] = { line = #lines, c0 = 0, c1 = #label, hl = 'AaagBorder' }
+        lines[#lines + 1] = ''
+      end
+      lay(cells_of(dormant_cards))
+    else
+      -- Hidden: a single hint line with the count and how to reveal.
+      local hint = string.format('── %d dormant · <Tab> to show ', #dormant_cards)
+      hint = hint .. string.rep('─', math.max(0, width - vim.fn.strdisplaywidth(hint)))
+      lines[#lines + 1] = hint
+      hls[#hls + 1] = { line = #lines, c0 = 0, c1 = #hint, hl = 'AaagBorder' }
+    end
   end
   return lines, hls
 end
@@ -302,8 +349,9 @@ end
 local function place_cursor()
   local rect = state.current and state.rects[state.current]
   if rect and rect.lines[1] then
-    state.suppress = true -- our own move; the CursorMoved handler ignores it
-    pcall(vim.api.nvim_win_set_cursor, state.win, { rect.lines[1].line, rect.lines[1].c0 })
+    local pos = { rect.lines[1].line, rect.lines[1].c0 }
+    state.set_pos = pos -- our own move; CursorMoved ignores this exact position
+    pcall(vim.api.nvim_win_set_cursor, state.win, pos)
   end
 end
 
@@ -419,9 +467,15 @@ local function set_keymaps()
     local card = state.current and card_by_sid(state.current)
     if not card then return end
     M.close()
-    if not jump.to_pid(card.pid) then
-      vim.notify('aaag: ' .. card.name ..
-        ' is not in a visible nvim terminal (tmux/external?)', vim.log.levels.WARN)
+    if card.active then
+      -- Live: jump to the terminal tab already running it.
+      if not jump.to_pid(card.pid) then
+        vim.notify('aaag: ' .. card.name ..
+          ' is not in a visible nvim terminal (tmux/external?)', vim.log.levels.WARN)
+      end
+    else
+      -- Dormant: resume it in a new tab, tcd'd to its work dir.
+      jump.resume('tab', card.cwd, card.sid)
     end
   end)
   local function toggle()
@@ -430,8 +484,18 @@ local function set_keymaps()
       redraw()
     end
   end
-  map('<Tab>', toggle)
+  -- Standard vim fold keys, applied to the selected card.
   map('za', toggle)
+  map('zo', function()
+    if state.current then state.collapsed[state.current] = false; redraw() end
+  end)
+  map('zc', function()
+    if state.current then state.collapsed[state.current] = true; redraw() end
+  end)
+  -- <Tab> reveals/hides the dormant section (init reloads it on reveal).
+  map('<Tab>', function()
+    if M.on_toggle_dormant then M.on_toggle_dormant() end
+  end)
   map('zM', function()
     for _, c in ipairs(state.cards) do state.collapsed[c.sid] = true end
     redraw()
@@ -443,7 +507,11 @@ local function set_keymaps()
     redraw()
   end)
   map('r', function()
-    if M.on_refresh_card and state.current then M.on_refresh_card(state.current) end
+    if not state.current then return end
+    -- Expand the card so the summary you're loading becomes visible.
+    state.collapsed[state.current] = false
+    redraw()
+    if M.on_refresh_card then M.on_refresh_card(state.current) end
   end)
   map('R', function() if M.on_refresh then M.on_refresh() end end)
 
@@ -452,8 +520,10 @@ local function set_keymaps()
   vim.api.nvim_create_autocmd('CursorMoved', {
     buffer = state.buf,
     callback = function()
-      if state.suppress then state.suppress = false; return end
       local pos = vim.api.nvim_win_get_cursor(state.win)
+      if state.set_pos and pos[1] == state.set_pos[1] and pos[2] == state.set_pos[2] then
+        return -- our own programmatic move, not user navigation
+      end
       local sid = locate(pos[1], pos[2])
       if sid and sid ~= state.current then
         state.current = sid
@@ -465,9 +535,12 @@ local function set_keymaps()
 end
 
 local function seed_folds()
-  local mode = config.opts.fold_default
   for _, c in ipairs(state.cards) do
     if state.collapsed[c.sid] == nil then
+      -- Live cards follow fold_default; dormant cards follow their own default
+      -- (collapsed) so the recency tail stays scannable.
+      local mode = c.active and config.opts.fold_default
+        or config.opts.dormant_fold_default
       if mode == 'collapsed' then
         state.collapsed[c.sid] = true
       elseif mode == 'blocked' then
@@ -495,8 +568,9 @@ local function win_geometry()
   }
 end
 
-function M.open(cards)
+function M.open(cards, show_dormant)
   state.cards = cards
+  state.show_dormant = show_dormant or false
   seed_folds()
   if M.is_open() then return redraw() end
 
@@ -529,9 +603,10 @@ function M.open(cards)
   redraw()
 end
 
-function M.update(cards)
+function M.update(cards, show_dormant)
   if not M.is_open() then return end
   state.cards = cards
+  if show_dormant ~= nil then state.show_dormant = show_dormant end
   seed_folds()
   redraw()
   ensure_spinner()
