@@ -268,6 +268,11 @@ function M.delete_card(sid)
       vim.log.levels.ERROR)
     return
   end
+  -- Remember the display position so we can land on a neighbour afterward
+  -- rather than jumping the selection (and view) to the top.
+  local pos
+  for i, c in ipairs(sorted()) do if c.sid == sid then pos = i break end end
+
   local ok, err = os.remove(path)
   if not ok then
     vim.notify('aaag: delete failed: ' .. tostring(err), vim.log.levels.ERROR)
@@ -276,6 +281,11 @@ function M.delete_card(sid)
   recap.invalidate(sid)
   table.remove(M._cards, idx)
   render()
+  -- The card now at the old position is the one that followed it (or the new
+  -- last if we removed the last); select it so the view stays put.
+  local rest = sorted()
+  local pick = pos and rest[math.min(pos, #rest)]
+  if pick then ui.select(pick.sid) end
   vim.notify('aaag: deleted ' .. card.name)
 end
 

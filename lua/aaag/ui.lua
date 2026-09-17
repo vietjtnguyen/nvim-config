@@ -398,6 +398,16 @@ local function card_by_sid(sid)
   for _, c in ipairs(state.cards) do if c.sid == sid then return c end end
 end
 
+-- Move the selection to a specific card by sid (used after a delete to land on
+-- an adjacent card rather than resetting to the top). No-op if it isn't shown.
+function M.select(sid)
+  if not (sid and state.rects[sid]) then return end
+  state.current = sid
+  state.pinned = true
+  place_cursor()
+  paint_selection()
+end
+
 -- Spinner animation: run a repeating timer only while some card is loading or
 -- refreshing, advancing the frame and redrawing; stop it as soon as nothing is
 -- active (or the dashboard closes).
