@@ -1,10 +1,12 @@
 -- aaag: agents at a glance.
 --
 -- A quicklook dashboard over the Claude Code CLI sessions you already have
--- running in Neovim terminal tabs. It observes -- it does not launch, own, or
--- orchestrate them: everything is derived from Claude Code's own on-disk state
--- (live-session metadata + transcripts) plus Neovim's terminal process info.
--- Delete this plugin and your sessions and terminals are untouched.
+-- running in Neovim terminal tabs. It observes rather than manages: the view is
+-- derived from Claude Code's own on-disk state (live-session metadata +
+-- transcripts) plus Neovim's terminal process info, and it never touches a
+-- running session. On request it can resume a dormant conversation into a new
+-- terminal or delete a dormant transcript, but it keeps no state of its own --
+-- delete the plugin and your live sessions and terminals are untouched.
 --
 -- Pipeline: discovery (live sessions) -> transcript (deterministic age/tail) ->
 -- recap (async A/B model summaries) -> ui (folding float). Each card fills in

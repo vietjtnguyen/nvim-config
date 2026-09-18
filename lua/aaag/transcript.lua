@@ -2,9 +2,10 @@
 -- straight from the on-disk JSONL with no model call -- age, the activity
 -- timeline, and the recent-turns tail we later hand to the summarizer.
 --
--- The file can be large (tens of MB for a long session), so the read is async
--- (libuv), and the parsing that follows runs on the scheduler, never blocking
--- input while we open the dashboard.
+-- The file read is async (libuv), so opening the dashboard doesn't wait on
+-- disk. The parsing that follows runs on the main loop, so a very large
+-- transcript (tens of MB) can still cost a beat -- the per-file bounds here and
+-- the mtime cache in M.load keep that off the common path.
 
 local config = require('aaag.config')
 

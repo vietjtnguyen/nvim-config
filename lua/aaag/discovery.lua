@@ -11,12 +11,11 @@ local config = require('aaag.config')
 
 local M = {}
 
--- Is `pid` a live claude process? We read /proc/<pid>/comm: it both proves
--- liveness and confirms identity, so a recycled PID belonging to some other
--- program is rejected. aaag is Linux-only (see :checkhealth aaag) -- a signal-0
--- probe was tempting off Linux, but libuv returns ESRCH as a value rather than
--- throwing, so pcall reports a dead PID as live; without /proc we simply cannot
--- verify, so we report not-live rather than trusting a stale metadata file.
+-- Is `pid` a live claude process? Reading /proc/<pid>/comm proves both liveness
+-- and identity, so a recycled PID now running another program is rejected. aaag
+-- is Linux-only: without /proc we report not-live rather than trust a stale
+-- metadata file (a signal-0 probe can't stand in -- libuv returns ESRCH as a
+-- value, not a throw, so pcall reads a dead PID as live).
 local function comm_of(pid)
   local f = io.open('/proc/' .. pid .. '/comm', 'r')
   if not f then return nil end

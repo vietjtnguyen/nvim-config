@@ -1,19 +1,17 @@
 -- aaag summaries: turn a session's transcript into the card's prose fields.
 --
--- Two model surfaces, split by what changes fast vs slow (validated by
--- experiment):
---   A -- identity (Thread/Thesis): a fork of the live session, so it sees the
---        full/compacted context. Rich, slow-changing -> cached hard. BUT a fork
---        of a mid-turn transcript continues the conversation instead of
---        summarizing, so A is used ONLY on idle sessions; busy ones fall back.
---   B -- live state (Now/Last/State/Arc): a stateless one-shot over an assembled
---        recent-tail + timeline. Cheap, no session file created, faithful to the
---        latest turns -> recomputed whenever the transcript changes.
+-- Two model surfaces, split by how fast the content changes:
+--   A -- identity (Thread): a fork of the live session, so it sees the full
+--        (compacted) context. Slow-changing, cached hard. A fork of a mid-turn
+--        session continues the conversation instead of summarizing, so A runs
+--        only on idle sessions.
+--   B -- live state (Now/Last/State/Arc): a stateless one-shot over the recent
+--        tail + timeline. Cheap, faithful to the latest turns, recomputed when
+--        the transcript changes.
 -- A busy session gets a single B call producing all six fields.
 --
--- Results are cached by (sid, transcript mtime): an unchanged session is never
--- re-summarized. Identity additionally survives an mtime bump (it rarely
--- changes) until a full refresh clears the cache.
+-- Cached by (sid, transcript mtime); identity survives an mtime bump until a
+-- full refresh, since it rarely changes.
 
 local config = require('aaag.config')
 
@@ -73,14 +71,12 @@ Arc: ONE sentence on the session's temporal shape, using ONLY the timeline below
 --   failed, total,-- how many of `total` jobs failed, for the retry note
 --   callbacks,    -- on_update fns to notify as fields land (dup loads coalesce)
 -- }
--- An entry is written BEFORE its jobs run, so the states must be explicit: a
--- request for the same mtime while `done` is false attaches as another callback
--- instead of spawning a second subprocess or being handed a false "done". A
--- finished entry (done) is served from cache and NEVER auto-retried -- a failure
--- carries a note telling the user to press `r`, which invalidates and re-prompts.
--- token is a per-request generation stamp: a late callback from a superseded
--- request (transcript advanced, or a forced refresh) carries an old token and is
--- dropped, so it can't overwrite fresher fields.
+-- The entry is written before its jobs run, so state is explicit: a same-mtime
+-- request while pending attaches as another callback (no duplicate subprocess,
+-- no false "done"); a finished entry is served as-is and never auto-retried, so
+-- a failure carries a note to press `r`. token drops a late callback from a
+-- superseded request (advanced transcript or forced refresh) so it can't
+-- overwrite fresher fields.
 local cache = {}
 local generation = 0
 

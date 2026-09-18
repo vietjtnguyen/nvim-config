@@ -49,9 +49,8 @@ M.defaults = {
   -- false for plain whitespace between columns.
   column_rule = true,
 
-  -- Bound on the transcript tail fed to the stateless (B) summary call: keep the
-  -- most recent user/assistant turns, up to tail_msgs turns or tail_chars
-  -- characters, whichever limit is reached first.
+  -- Recent-turns tail fed to the stateless (B) summary call: keep at most
+  -- tail_msgs turns or tail_chars characters, whichever limit is hit first.
   tail_msgs = 50,
   tail_chars = 35000,
 }

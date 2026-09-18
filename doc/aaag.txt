@@ -17,16 +17,18 @@ CONTENTS					*aaag* *aaag-contents*
 1. Introduction						*aaag-introduction*
 
 aaag ("agents at a glance") shows a floating dashboard of the Claude Code CLI
-sessions you already have running in Neovim terminal tabs.  It observes them;
-it does not launch, own, or orchestrate them.
+sessions you already have running in Neovim terminal tabs.  It observes rather
+than manages: it never touches a running session.  On request it can resume a
+dormant conversation into a new terminal (see |aaag-mappings|) or delete a
+dormant transcript (see |aaag-keys| "D"), but it keeps no state of its own.
 
 Everything is derived from state that Claude Code and Neovim already expose:
 live sessions from the per-process metadata under >
 	~/.claude/sessions/{PID}.json
 <filtered to PIDs that are still a running "claude"; deterministic age and
 activity from each session's transcript; and short natural-language summaries
-from asynchronous "claude -p" calls.  Removing the plugin leaves your sessions
-and terminals untouched.
+from asynchronous "claude -p" calls.  Removing the plugin leaves your live
+sessions and terminals untouched.
 
 Each session is a card showing its working directory, age, the durable thread
 of the work, what you last asked, and what the agent is doing now (often:
@@ -145,7 +147,8 @@ Live cards, and dormant cards last active within the last 24 hours, are
 summarized automatically; older dormant cards stay deterministic (work dir,
 title, last-active) until you press `r` on them.  Results are cached, so
 reopening an unchanged conversation is instant and generating a summary leaves
-no extra conversation behind.
+no extra conversation behind.  If a summary call fails, the card keeps whatever
+fields it has and shows a note to press `r`; it is not retried automatically.
 
 ==============================================================================
 4. Mappings						*aaag-mappings*
@@ -278,8 +281,8 @@ Run |:checkhealth| aaag to verify these.		*aaag-health*
 - "blocked" (waiting on you) versus plain idle is a heuristic over the model's
   State line; Claude's own idle/busy status cannot distinguish "asked you a
   question" from "finished cleanly".
-- Summaries cost latency (seconds per session) and, for idle sessions, the
-  fork writes a short-lived session file under ~/.claude; a refresh landing in
-  that window may briefly show a phantom card until the fork exits.
+- Summaries cost latency (a few seconds per session) and each is a model call.
+  They run with --no-session-persistence, so they leave no transcript behind,
+  and the deterministic card fields never wait on them.
 
  vim:tw=78:ts=8:sw=8:noet:ft=help:norl:

@@ -32,10 +32,9 @@ local state = {
   grid = {},        -- gr -> { gc -> sid }
   current = nil,    -- sid of the selected card
   pinned = false,   -- true once the user has chosen a card (stops auto-select)
-  set_pos = nil,    -- last cursor position WE set, so we can ignore it in
-                    -- CursorMoved (an API cursor move may not fire CursorMoved,
-                    -- so a boolean guard would leak and swallow the next real
-                    -- move; matching on position is leak-proof)
+  set_pos = nil,    -- last cursor position WE set, matched (not a boolean flag)
+                    -- to ignore it in CursorMoved: an API move may not fire the
+                    -- event, so a boolean guard would swallow the next real move
   show_dormant = false, -- whether the dormant section is revealed
 }
 
@@ -189,13 +188,11 @@ local function make_cell(card, cw)
   local arrow = folded and '►' or '▼'
   local age = card.last_ago and ('last ' .. card.last_ago) or ''
 
-  -- Header (single line, truncated to fit): bar, fold arrow, glyph, name,
-  -- [state], age; when folded, a snippet (thread if summarized, else the first
-  -- message) trails so a collapsed card still says what it is.
-  -- The status-glyph slot doubles as the spinner: while loading/refreshing it
-  -- shows the spinner frame instead of the glyph (loading is itself a status),
-  -- always visible near the start and never truncated by a long title. Slot
-  -- width is constant (both are one column), so the name doesn't shift.
+  -- Header (one line, truncated to fit): bar, fold arrow, glyph, name, [state],
+  -- age; folded, a snippet (thread or first message) trails so a collapsed card
+  -- still says what it is. The glyph slot becomes the spinner while loading: a
+  -- fixed one-column slot near the start, so a long title never hides it and the
+  -- name doesn't shift.
   local spinning = card.refreshing or card.loading
   local glyph = spinning and SPINNER[spin_idx] or g[1]
   local head = string.format('%s %s %s %s  [%s]  %s',
