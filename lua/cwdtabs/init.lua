@@ -520,6 +520,21 @@ local function set_highlights()
   vim.api.nvim_set_hl(0, 'CwdTabsCount', { link = 'TabLine' })
 end
 
+-- Invoke a picker from the optional Telescope layer. Kept behind a lazy require
+-- so the core never loads telescope itself: a telescope-less user can still
+-- install every mapping/command below; only pressing one reports the missing
+-- dependency. The zoxide picker additionally needs the `zoxide` CLI, which it
+-- checks and reports on its own.
+local function run_picker(name)
+  local ok, pickers = pcall(require, 'cwdtabs.pickers')
+  if not ok then
+    vim.notify('cwdtabs: telescope.nvim is required for the pickers',
+      vim.log.levels.WARN)
+    return
+  end
+  pickers[name]()
+end
+
 -- <Plug> mappings, created by setup(): the remappable layer for each action.
 -- Inert until mapped, so users can bind their own keys without wrapping a Lua
 -- function (see cwdtabs-mappings). The default gG* mappings go through these.
@@ -543,6 +558,10 @@ local function set_plug_mappings()
     { desc = 'cwdtabs: next tab (spatial)' })
   map('n', '<Plug>(cwdtabs-prev-tab)', M.prev_tab,
     { desc = 'cwdtabs: previous tab (spatial)' })
+  -- Optional Telescope pickers (see run_picker). The zoxide picker also needs
+  -- the zoxide CLI; both degrade to a notice when a dependency is absent.
+  map('n', '<Plug>(cwdtabs-pick-zoxide)', function() run_picker('pick_zoxide') end,
+    { desc = 'cwdtabs: pick a zoxide dir -> tcd a tab' })
 end
 
 -- Installed by setup{ spatial_tab_motions = true }: remap gt/gT to walk the
@@ -594,6 +613,9 @@ local function set_commands()
     { desc = 'cwdtabs: next tab (spatial)' })
   cmd('CwdTabsPrevTab', M.prev_tab,
     { desc = 'cwdtabs: previous tab (spatial)' })
+  -- Optional Telescope pickers (see run_picker); zoxide picker also needs zoxide.
+  cmd('CwdTabsPickZoxide', function() run_picker('pick_zoxide') end,
+    { desc = 'cwdtabs: pick a zoxide dir -> tcd a tab' })
 end
 
 local defaults = {

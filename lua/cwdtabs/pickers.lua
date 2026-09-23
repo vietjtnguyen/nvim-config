@@ -1,9 +1,12 @@
--- Telescope pickers for cwdtabs-style navigation. Kept out of the cwdtabs core,
--- which stays finder-agnostic; this is the config-level Telescope layer. Two
--- pickers are views over the live tab model (require('cwdtabs').groups()); the
--- zoxide picker is sourced from the zoxide directory database and re-roots a tab
--- with :tcd, which cwdtabs' DirChanged autocmd then regroups -- same derive-only
--- model, just seeded from where you've been rather than where your tabs are.
+-- Telescope pickers for cwdtabs-style navigation. This submodule pulls in
+-- telescope, so the core (cwdtabs/init.lua) never requires it directly and
+-- stays finder-agnostic; setup() wires the pickers through <Plug> mappings and
+-- :CwdTabsPick* commands that load this module lazily, only when a picker is
+-- actually invoked. Two pickers are views over the live tab model
+-- (require('cwdtabs').groups()); the zoxide picker is sourced from the zoxide
+-- directory database and re-roots a tab with :tcd, which cwdtabs' DirChanged
+-- autocmd then regroups -- same derive-only model, just seeded from where you've
+-- been rather than where your tabs are.
 
 local cwdtabs = require('cwdtabs')
 local pickers = require('telescope.pickers')

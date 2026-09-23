@@ -307,24 +307,24 @@ vim.keymap.set({ 'n', 'v', 'o' }, '<Space>m', function()
 end, { desc = 'Workspace Symbols: Functions/Methods' })
 
 -- <Space>G picks any tab (shown as "group › tab"). The group-only picker,
--- require('cwdtabs_pickers').pick_groups(), is available to bind too. Both
+-- require('cwdtabs.pickers').pick_groups(), is available to bind too. Both
 -- are a Telescope view of require('cwdtabs').groups(); see
--- lua/cwdtabs_pickers.lua.
+-- lua/cwdtabs/pickers.lua.
 vim.keymap.set({ 'n', 'v', 'o' }, '<Space>G', function()
-  require('cwdtabs_pickers').pick_tabs()
+  require('cwdtabs.pickers').pick_tabs()
 end, { desc = 'Pick Tab' })
 
 -- <C-g><C-g> mirrors <Space>G under the <C-g> prefix (see above).
 vim.keymap.set('n', '<C-g><C-g>', function()
-  require('cwdtabs_pickers').pick_tabs()
+  require('cwdtabs.pickers').pick_tabs()
 end, { desc = 'Pick Tab' })
 
 -- <Space>z picks a directory from zoxide (frecency order, like `zi`) and re-roots
 -- a tab on it: <CR> the current tab, <C-t> a new tab (netrw listing). The :tcd
 -- makes cwdtabs regroup, so this is how you pull a new project into the tabline.
-vim.keymap.set({ 'n', 'v', 'o' }, '<Space>z', function()
-  require('cwdtabs_pickers').pick_zoxide()
-end, { desc = 'Zoxide → tcd tab' })
+-- Bound through the plugin's <Plug> surface; needs telescope and the zoxide CLI.
+vim.keymap.set('n', '<Space>z', '<Plug>(cwdtabs-pick-zoxide)',
+  { remap = true, desc = 'Zoxide → tcd tab' })
 
 --------------------------------------------------------------------------------
 -- Colorschemes
