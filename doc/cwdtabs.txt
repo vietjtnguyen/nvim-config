@@ -234,6 +234,23 @@ mappings and commands unconditionally but loads the submodule only when a
 picker is invoked, so without telescope everything else still works and a
 picker merely reports the missing dependency.
 
+						*cwdtabs-pick-tabs*
+The tab picker lists every tab across all groups as "group › tab", with the
+buffer's location dimmed after it and the current tab marked "●".  A terminal
+shows the process it runs (e.g. "zsh → claude") instead of the bare shell.
+<CR> jumps to the selected tab.  The full path stays in the fuzzy-match text
+even when the line shows only a shortened "./..." form.
+
+Invoke it with :CwdTabsPickTabs, <Plug>(cwdtabs-pick-tabs), or
+require('cwdtabs.pickers').pick_tabs().
+
+						*cwdtabs-pick-groups*
+The group picker lists the CWD groups, one per line, with the current group
+marked "●"; <CR> opens that group's first tab.
+
+Invoke it with :CwdTabsPickGroups, <Plug>(cwdtabs-pick-groups), or
+require('cwdtabs.pickers').pick_groups().
+
 						*cwdtabs-pick-zoxide*
 The zoxide picker lists the directories in your zoxide database in frecency
 order -- like "zoxide query --interactive" (zi) -- and re-roots a tab on the
