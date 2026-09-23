@@ -319,6 +319,13 @@ vim.keymap.set('n', '<C-g><C-g>', function()
   require('cwdtabs_pickers').pick_tabs()
 end, { desc = 'Pick Tab' })
 
+-- <Space>z picks a directory from zoxide (frecency order, like `zi`) and re-roots
+-- a tab on it: <CR> the current tab, <C-t> a new tab (netrw listing). The :tcd
+-- makes cwdtabs regroup, so this is how you pull a new project into the tabline.
+vim.keymap.set({ 'n', 'v', 'o' }, '<Space>z', function()
+  require('cwdtabs_pickers').pick_zoxide()
+end, { desc = 'Zoxide → tcd tab' })
+
 --------------------------------------------------------------------------------
 -- Colorschemes
 --------------------------------------------------------------------------------
