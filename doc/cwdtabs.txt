@@ -8,9 +8,10 @@ CONTENTS					*cwdtabs* *cwdtabs-contents*
 3. The tabline ....................... |cwdtabs-tabline|
 4. Mappings .......................... |cwdtabs-mappings|
 5. Commands .......................... |cwdtabs-commands|
-6. Lua API ........................... |cwdtabs-api|
-7. Highlights ........................ |cwdtabs-highlights|
-8. Limitations ....................... |cwdtabs-limitations|
+6. Pickers ........................... |cwdtabs-pickers|
+7. Lua API ........................... |cwdtabs-api|
+8. Highlights ........................ |cwdtabs-highlights|
+9. Limitations ....................... |cwdtabs-limitations|
 
 ==============================================================================
 1. Introduction						*cwdtabs-introduction*
@@ -225,7 +226,35 @@ setup() also defines these commands, thin wrappers over |cwdtabs-api|:
 			|cwdtabs.prev_tab()|.
 
 ==============================================================================
-6. Lua API						*cwdtabs-api*
+6. Pickers						*cwdtabs-pickers*
+
+Optional Telescope pickers, in the submodule require('cwdtabs.pickers').  They
+require telescope.nvim; the core tabline does not.  setup() installs their
+mappings and commands unconditionally but loads the submodule only when a
+picker is invoked, so without telescope everything else still works and a
+picker merely reports the missing dependency.
+
+						*cwdtabs-pick-zoxide*
+The zoxide picker lists the directories in your zoxide database in frecency
+order -- like "zoxide query --interactive" (zi) -- and re-roots a tab on the
+one you choose.  It is how you pull a directory you have been in before into
+the tabline as a group, without leaving Neovim.  The current tab's directory
+is marked "●".
+
+	<CR>	|:tcd| the current tab to the directory, moving it to the
+		matching group (like |cwdtabs-gGc|, but to any zoxide dir).
+	<C-t>	Open the directory in a new tab as a netrw listing, and
+		|:tcd| that tab to it.
+
+Either way the |:tcd| regroups the tabline automatically.  A stale zoxide
+entry whose directory no longer exists is reported, not opened.
+
+Invoke it with :CwdTabsPickZoxide, <Plug>(cwdtabs-pick-zoxide), or
+require('cwdtabs.pickers').pick_zoxide().  It needs both telescope.nvim and
+the zoxide CLI (https://github.com/ajeetdsouza/zoxide) on your PATH.
+
+==============================================================================
+7. Lua API						*cwdtabs-api*
 
 						*cwdtabs.setup()*
 require('cwdtabs').setup({opts})
@@ -291,7 +320,7 @@ require('cwdtabs').render()
 			expression; you do not call it yourself.
 
 ==============================================================================
-7. Highlights						*cwdtabs-highlights*
+8. Highlights						*cwdtabs-highlights*
 
 The plugin defines these groups, linked to built-ins so the colorscheme drives
 the colors.  Override them to restyle the tabline.
@@ -314,7 +343,7 @@ CwdTabsCount					*hl-CwdTabsCount*
 Tabs use the standard |hl-TabLine| and |hl-TabLineSel| (current tab) groups.
 
 ==============================================================================
-8. Limitations						*cwdtabs-limitations*
+9. Limitations						*cwdtabs-limitations*
 
 The tabline is a single physical line.  When the tabs are wider than the
 screen it slides to keep the current tab visible, marking elided tabs with "‹"
