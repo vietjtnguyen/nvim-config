@@ -306,18 +306,16 @@ vim.keymap.set({ 'n', 'v', 'o' }, '<Space>m', function()
   })
 end, { desc = 'Workspace Symbols: Functions/Methods' })
 
--- <Space>G picks any tab (shown as "group › tab"). The group-only picker,
--- require('cwdtabs.pickers').pick_groups(), is available to bind too. Both
--- are a Telescope view of require('cwdtabs').groups(); see
--- lua/cwdtabs/pickers.lua.
-vim.keymap.set({ 'n', 'v', 'o' }, '<Space>G', function()
-  require('cwdtabs.pickers').pick_tabs()
-end, { desc = 'Pick Tab' })
+-- <Space>G picks any tab (shown as "group › tab"), via the plugin's <Plug>
+-- surface. A group-only picker (<Plug>(cwdtabs-pick-groups)) is available to
+-- bind too; both are a Telescope view of the cwdtabs model. See |cwdtabs-pickers|
+-- and lua/cwdtabs/pickers.lua.
+vim.keymap.set('n', '<Space>G', '<Plug>(cwdtabs-pick-tabs)',
+  { remap = true, desc = 'Pick Tab' })
 
 -- <C-g><C-g> mirrors <Space>G under the <C-g> prefix (see above).
-vim.keymap.set('n', '<C-g><C-g>', function()
-  require('cwdtabs.pickers').pick_tabs()
-end, { desc = 'Pick Tab' })
+vim.keymap.set('n', '<C-g><C-g>', '<Plug>(cwdtabs-pick-tabs)',
+  { remap = true, desc = 'Pick Tab' })
 
 -- <Space>z picks a directory from zoxide (frecency order, like `zi`) and re-roots
 -- a tab on it: <CR> the current tab, <C-t> a new tab (netrw listing). The :tcd

@@ -558,8 +558,12 @@ local function set_plug_mappings()
     { desc = 'cwdtabs: next tab (spatial)' })
   map('n', '<Plug>(cwdtabs-prev-tab)', M.prev_tab,
     { desc = 'cwdtabs: previous tab (spatial)' })
-  -- Optional Telescope pickers (see run_picker). The zoxide picker also needs
-  -- the zoxide CLI; both degrade to a notice when a dependency is absent.
+  -- Optional Telescope pickers (see run_picker); each degrades to a notice when
+  -- telescope is absent, and the zoxide picker also needs the zoxide CLI.
+  map('n', '<Plug>(cwdtabs-pick-tabs)', function() run_picker('pick_tabs') end,
+    { desc = 'cwdtabs: pick any tab' })
+  map('n', '<Plug>(cwdtabs-pick-groups)', function() run_picker('pick_groups') end,
+    { desc = 'cwdtabs: pick a tab group' })
   map('n', '<Plug>(cwdtabs-pick-zoxide)', function() run_picker('pick_zoxide') end,
     { desc = 'cwdtabs: pick a zoxide dir -> tcd a tab' })
 end
@@ -614,6 +618,10 @@ local function set_commands()
   cmd('CwdTabsPrevTab', M.prev_tab,
     { desc = 'cwdtabs: previous tab (spatial)' })
   -- Optional Telescope pickers (see run_picker); zoxide picker also needs zoxide.
+  cmd('CwdTabsPickTabs', function() run_picker('pick_tabs') end,
+    { desc = 'cwdtabs: pick any tab' })
+  cmd('CwdTabsPickGroups', function() run_picker('pick_groups') end,
+    { desc = 'cwdtabs: pick a tab group' })
   cmd('CwdTabsPickZoxide', function() run_picker('pick_zoxide') end,
     { desc = 'cwdtabs: pick a zoxide dir -> tcd a tab' })
 end
